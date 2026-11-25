@@ -255,7 +255,7 @@ canvas#world{display:block;width:100%;height:100%;touch-action:none}
             <h4>Камера, рука, операция, силы</h4>
             <ul>
               <li><b>Колесо</b> — зум в точку под курсором · <b>ПКМ/средняя + движение</b> — сдвиг · <b>C</b> — сброс вида.</li>
-              <li><b>✋ Рука</b> — тяни руки, ноги и голову. Переломы отвечают болью. Двойной клик — сброс позы.</li>
+              <li><b>✋ Рука</b> — осматривай любой участок: подробности в журнал, треск — если там перелом.</li>
               <li><b>🩺 Операция</b> (кнопка или <b>S</b>) — органы видны и подписаны процентами повреждения.</li>
               <li><b>🩺 Хирургия</b>: коагулятор (внутреннее кровотечение), шовник (все раны), ретрактор (−22% органам зоны).</li>
               <li><b>⚡ Силы</b>: Нейро-блок (12с без боли), Крио-анабиоз (8с заморозки всего), Магнитный импульс (вышибает застрявшее), Перезагрузка ядра (полный сброс, только песочница). У каждой — перезарядка.</li>
@@ -391,7 +391,7 @@ const ITEMS=[
  {id:'stetho', cat:'tool',icon:'🩺',name:'Стетоскоп',       desc:'прослушать органы · сводка в журнал',apply:'stetho'},
  {id:'xray',   cat:'tool',icon:'🩻',name:'Рентген',         desc:'переключить рентген-режим (X)',     apply:'xray'},
  // --- рука ---
- {id:'hand',   cat:'hand',icon:'✋',name:'Рука',            desc:'тянуть конечности и голову · двойной клик — сброс позы',apply:'hand'},
+ {id:'hand',   cat:'hand',icon:'✋',name:'Рука',            desc:'осмотр: что лежит под кожей, потрескивает ли перелом',apply:'hand'},
  // --- хирургия ---
  {id:'coag',     cat:'surgery',icon:'🔥',name:'Коагулятор «Термик»',desc:'прижигает внутреннее кровотечение · 60с',count:2,apply:'coag'},
  {id:'suture',   cat:'surgery',icon:'🧵',name:'Шовник «Атлас»',     desc:'зашивает ВСЕ наружные раны разом',   count:1,apply:'suture'},
@@ -415,52 +415,57 @@ const ITEMS=[
 const ITEM_BY_ID=Object.fromEntries(ITEMS.map(i=>[i.id,i]));
 const MED_COUNT=Object.fromEntries(ITEMS.filter(i=>i.count).map(i=>[i.id,i.count]));
 
-/* ============ ЗОНЫ И АНАТОМИЯ ============ */
+/* ============ МИР: СЦЕНА ОПЕРАЦИИ (1536×1024) ============ */
+const IMGW=1536,IMGH=1024;
+const sceneImg=new Image();sceneImg.src='assets/trauma-lab-bg.jpg';
+const FIT={s:1,ox:0,oy:0};
 const ZONE_NAME={head:'Голова',chest:'Грудь',belly:'Живот',pelvis:'Таз',armL:'Рука слева',armR:'Рука справа',legL:'Нога слева',legR:'Нога справа'};
-const LIMB_ZONES=new Set(['armL','armR','legL','legR']);
 const ORGAN_NAME={brain:'Мозг',heart:'Сердце',lungL:'Лёгкое лев.',lungR:'Лёгкое прав.',liver:'Печень',stomach:'Желудок',bowel:'Кишечник'};
+// Зоны честно откалиброваны под спящего на столе К-7 на этой картинке
+const HEAD={x:438,y:505,r:50};
+const ZX={
+  chest:{x:[500,700],y:[440,500]},
+  belly:{x:[520,790],y:[475,560]},
+  pelvis:{x:[700,1010],y:[455,625]},
+  armL:{a:{x:520,y:512},mid:{x:600,y:567},b:{x:713,y:611},tol:33},
+  armR:{a:{x:545,y:470},mid:{x:628,y:494},b:{x:705,y:516},tol:18},
+  legL:{a:{x:760,y:573},mid:{x:968,y:556},b:{x:1240,y:634},tol:44},
+  legR:{a:{x:770,y:470},mid:{x:1000,y:513},b:{x:1259,y:585},tol:37},
+};
+const ZONE_ANCHOR={head:{x:438,y:500},chest:{x:600,y:465},belly:{x:670,y:510},pelvis:{x:748,y:585},armL:{x:612,y:568},armR:{x:625,y:488},legL:{x:995,y:568},legR:{x:1005,y:515}};
+const ORGAN_POS={
+  brain:{x:438,y:492,rx:25,ry:19},
+  heart:{x:585,y:462,rx:12,ry:11},
+  lungL:{x:530,y:455,rx:26,ry:14},
+  lungR:{x:645,y:455,rx:26,ry:14},
+  liver:{x:610,y:495,rx:25,ry:10,rot:0.18},
+  stomach:{x:685,y:482,rx:15,ry:10,rot:-0.15},
+  bowel:{x:665,y:515,rx:32,ry:11},
+};
+const SPINE={a:{x:478,y:478},b:{x:828,y:508}};
 
-function bodyLayout(){
-  const cx=W*0.5;
-  const headR=clamp(H*0.068,24,66);
-  const headY=H*0.132+headR*0.25;
-  const shY=H*0.243;
-  const chestBot=H*0.425, bellyBot=H*0.575, pelvisBot=H*0.648;
-  const legEnd=H*0.925;
-  const shHalf=Math.min(W*0.175,H*0.152);
-  const hipHalf=shHalf*0.78;
-  const armW=Math.max(9,H*0.024), legW=Math.max(11,H*0.031);
-  return {cx,headR,headY,shY,chestBot,bellyBot,pelvisBot,legEnd,shHalf,hipHalf,armW,legW};
-}
-function rawLimbSeg(side){const L=bodyLayout();return{ax:L.cx+side*(L.shHalf-2),ay:L.shY+8,bx:L.cx+side*(L.shHalf+W*0.052),by:H*0.462};}
-function rawLegSeg(side){const L=bodyLayout();return{ax:L.cx+side*L.hipHalf*0.55,ay:L.pelvisBot-6,bx:L.cx+side*L.hipHalf*0.66,by:L.legEnd};}
-function rotPt(px,py,ox,oy,a){const c=Math.cos(a),s=Math.sin(a);const dx=px-ox,dy=py-oy;return{x:ox+dx*c-dy*s,y:oy+dx*s+dy*c};}
-function normAngle(a){while(a>Math.PI)a-=Math.PI*2;while(a<-Math.PI)a+=Math.PI*2;return a;}
-function limbSeg(side){const s=rawLimbSeg(side);const a=(side<0?S.pose.armL:S.pose.armR)||0;if(!a)return s;const e=rotPt(s.bx,s.by,s.ax,s.ay,a);return{ax:s.ax,ay:s.ay,bx:e.x,by:e.y};}
-function legSeg(side){const s=rawLegSeg(side);const a=(side<0?S.pose.legL:S.pose.legR)||0;if(!a)return s;const e=rotPt(s.bx,s.by,s.ax,s.ay,a);return{ax:s.ax,ay:s.ay,bx:e.x,by:e.y};}
-function headCenter(){const L=bodyLayout();const py=L.shY-2;const dy=L.headY-py;const a=S.pose.head||0;const c=Math.cos(a),s=Math.sin(a);return{x:L.cx-dy*s,y:py+dy*c};}
-// Раны/снаряды/переломы хранятся в «телесных» координатах зоны — поза их не сбрасывает
+const LIMB_ZONES=new Set(['armL','armR','legL','legR']);
+const inRect=(x,y,r)=>x>=r.x[0]&&x<=r.x[1]&&y>=r.y[0]&&y<=r.y[1];
+// Раны/снаряды/переломы хранятся в «телесных» координатах зоны — экран не влияет
 function markerInto(o,zone,x,y){
-  if(LIMB_ZONES.has(zone)){const seg=zone.startsWith('arm')?limbSeg(zone==='armL'?-1:1):legSeg(zone==='legL'?-1:1);const dx=seg.bx-seg.ax,dy=seg.by-seg.ay,len2=dx*dx+dy*dy;let t=len2?((x-seg.ax)*dx+(y-seg.ay)*dy)/len2:.5;t=clamp(t,0,1);const nl=Math.hypot(dx,dy)||1;o.segT=t;o.segOff=((x-(seg.ax+dx*t))*-dy+(y-(seg.ay+dy*t))*dx)/nl;return o;}
-  if(zone==='head'){const hc=headCenter();const dx=x-hc.x,dy=y-hc.y;const a=-(S.pose.head||0);const c=Math.cos(a),s=Math.sin(a);o.hx=dx*c-dy*s;o.hy=dx*s+dy*c;return o;}
-  const a2=zoneAnchor(zone);o.rx=x-a2.x;o.ry=y-a2.y;return o;
+  const a=zoneAnchor(zone);o.rx=x-a.x;o.ry=y-a.y;return o;
 }
 function markerPos(o){
-  const zone=o.zone;
-  if(LIMB_ZONES.has(zone)&&o.segT!==undefined){const seg=zone.startsWith('arm')?limbSeg(zone==='armL'?-1:1):legSeg(zone==='legL'?-1:1);const dx=seg.bx-seg.ax,dy=seg.by-seg.ay,nl=Math.hypot(dx,dy)||1;const t=o.segT,off=o.segOff||0;return{x:seg.ax+dx*t+(-dy/nl)*off,y:seg.ay+dy*t+(dx/nl)*off};}
-  if(zone==='head'&&o.hx!==undefined){const hc=headCenter();const a=S.pose.head||0;const c=Math.cos(a),s=Math.sin(a);return{x:hc.x+o.hx*c-o.hy*s,y:hc.y+o.hx*s+o.hy*c};}
-  if(o.rx!==undefined){const a2=zoneAnchor(zone);return{x:a2.x+o.rx,y:a2.y+o.ry};}
-  return{x:o.x||0,y:o.y||0};
+  const a=zoneAnchor(o.zone||'belly');
+  if(o.rx!==undefined)return{x:a.x+o.rx,y:a.y+o.ry};
+  return{x:o.x||a.x,y:o.y||a.y};
 }
 function zoneAt(x,y){
-  const L=bodyLayout();const hc=headCenter();
-  if(Math.hypot(x-hc.x,y-hc.y)<L.headR*1.12) return 'head';
-  const tw=t=>lerp(L.shHalf,L.hipHalf,t);
-  if(y>=L.shY-6&&y<L.chestBot){const t=(y-L.shY)/(L.chestBot-L.shY);if(Math.abs(x-L.cx)<tw(0.15+t*0.45))return'chest';}
-  if(y>=L.chestBot&&y<L.bellyBot){const t=(y-L.chestBot)/(L.bellyBot-L.chestBot);if(Math.abs(x-L.cx)<lerp(L.shHalf*0.95,L.hipHalf*0.98,t))return'belly';}
-  if(y>=L.bellyBot&&y<L.pelvisBot+8){if(Math.abs(x-L.cx)<L.hipHalf)return'pelvis';}
-  for(const[id,s]of[['armL',-1],['armR',1]]){const g=limbSeg(s);if(distSeg(x,y,g.ax,g.ay,g.bx,g.by)<L.armW+2)return id;}
-  for(const[id,s]of[['legL',-1],['legR',1]]){const g=legSeg(s);if(distSeg(x,y,g.ax,g.ay,g.bx,g.by)<L.legW+2)return id;}
+  if(Math.hypot(x-HEAD.x,y-HEAD.y)<HEAD.r) return 'head';
+  if(x>=700&&x<=795&&y>=552&&y<=622) return 'pelvis';
+  const segHit=s=>distSeg(x,y,s.a.x,s.a.y,s.mid.x,s.mid.y)<s.tol||distSeg(x,y,s.mid.x,s.mid.y,s.b.x,s.b.y)<s.tol;
+  if(segHit(ZX.armL)) return 'armL';
+  if(segHit(ZX.armR)) return 'armR';
+  if(segHit(ZX.legL)) return 'legL';
+  if(segHit(ZX.legR)) return 'legR';
+  if(inRect(x,y,ZX.chest)) return 'chest';
+  if(inRect(x,y,ZX.belly)) return 'belly';
+  if(inRect(x,y,ZX.pelvis)) return 'pelvis';
   return null;
 }
 
@@ -482,8 +487,7 @@ const S={
   beatT:0,alarmT:0,ecgPhase:0,ecgData:[],hudT:0,saveT:0,
   rebleedRate:0,
   xray:false,surgery:false,aim:{x:-999,y:-999},
-  pose:{armL:0,armR:0,legL:0,legR:0,head:0},
-  poseDrag:null,panning:null,
+  panning:null,
   view:{scale:1,ox:0,oy:0},
   zoneFreeze:{},powerCd:{},gore:true,
 };
@@ -558,7 +562,7 @@ function refillInventory(){S.inventory={};for(const k in MED_COUNT)S.inventory[k
 /* ============ СОХРАНЕНИЕ ============ */
 function saveGame(){
   try{
-    const d={v:1,mode:S.mode,time:S.time,challengeTime:S.challengeTime,vitals:S.vitals,organs:S.organs,rhythm:S.rhythm,arrestT:S.arrestT,wounds:S.wounds,fractures:S.fractures,bandages:S.bandages,lodged:S.lodged,inventory:S.inventory,treatZone:S.treatZone,effects:S.effects,iv:S.iv,score:S.score,resolved:S.resolved,bloodLost:S.bloodLost,rebleedRate:S.rebleedRate,pose:S.pose};
+    const d={v:1,mode:S.mode,time:S.time,challengeTime:S.challengeTime,vitals:S.vitals,organs:S.organs,rhythm:S.rhythm,arrestT:S.arrestT,wounds:S.wounds,fractures:S.fractures,bandages:S.bandages,lodged:S.lodged,inventory:S.inventory,treatZone:S.treatZone,effects:S.effects,iv:S.iv,score:S.score,resolved:S.resolved,bloodLost:S.bloodLost,rebleedRate:S.rebleedRate};
     localStorage.setItem(SAVE_KEY,JSON.stringify(d));toast('💾 Сохранено');
   }catch(e){toast('Не удалось сохранить');}
 }
@@ -575,7 +579,6 @@ function loadGame(){
     for(const w of S.wounds)if(w.x!==undefined&&w.rx===undefined&&w.segT===undefined&&w.hx===undefined)markerInto(w,w.zone,w.x,w.y);
     for(const f of S.fractures)if(f.x!==undefined&&f.rx===undefined&&f.segT===undefined&&f.hx===undefined)markerInto(f,f.zone||'chest',f.x,f.y);
     for(const l of S.lodged)if(l.x!==undefined&&l.rx===undefined&&l.segT===undefined&&l.hx===undefined)markerInto(l,l.zone,l.x,l.y);
-    if(d.pose)S.pose=Object.assign({armL:0,armR:0,legL:0,legR:0,head:0},d.pose);
     S.inventory=d.inventory||{};S.treatZone=d.treatZone||{};Object.assign(S.effects,d.effects||{});Object.assign(S.iv,d.iv||{});
     S.score=d.score||0;S.resolved=d.resolved||0;S.bloodLost=d.bloodLost||0;S.rebleedRate=d.rebleedRate||0;
     S.wounds.forEach(w=>{if(w.id>=woundId)woundId=w.id+1;});
@@ -590,9 +593,9 @@ function resetField(){
   S.time=0;S.vitals=defaultVitals();S.organs=defaultOrgans();S.rhythm='normal';S.arrestT=0;S.deathCause='';
   S.wounds=[];S.splats=[];S.fractures=[];S.bandages=[];S.lodged=[];S.particles=[];S.casings=[];S.tracers=[];S.flashes=[];S.floats=[];S.sparks=[];
   S.effects={morphineT:0,epiT:0,atropineT:0,antibioticT:0,tranqT:0,coagT:0,peroxT:0,neuralT:0,cryoT:0};S.iv={saline:0,blood:0};
-  S.pose={armL:0,armR:0,legL:0,legR:0,head:0};S.poseDrag=null;S.panning=null;S.view={scale:1,ox:0,oy:0};S.zoneFreeze={};S.powerCd={};
+  S.panning=null;S.view={scale:1,ox:0,oy:0};S.zoneFreeze={};S.powerCd={};
   S.crises=[];S.crisisPool=[];S.nextCrisisAt=Infinity;S.score=0;S.resolved=0;S.bloodLost=0;S.rebleedRate=0;
-  S.shake=0;S.swing=null;S.fireHeld=false;S.over=false;S.paused=false;S.xray=false;
+  S.shake=0;S.swing=null;S.fireHeld=false;S.over=false;S.paused=false;S.xray=false;S.surgery=false;
   $('#woundLog').innerHTML='';
 }
 function updateModeHUD(){
@@ -631,15 +634,15 @@ function damageOrgan(name,amount){
   else if(name==='brain'&&after>=70)startArrest('Разрушение продолговатого мозга');
 }
 function chestHit(tx,ty,dmg){
-  const L=bodyLayout();const side=tx<L.cx?'L':'R';
-  const upper=ty<lerp(L.shY,L.chestBot,0.55);const r=Math.random();let organ;
+  const side=tx<655?'L':'R';
+  const upper=ty<545;const r=Math.random();let organ;
   if(upper){organ=r<0.72?(side==='L'?'lungL':'lungR'):r<0.88?(side==='L'?'lungR':'lungL'):'heart';}
   else{organ=r<0.58?'heart':r<0.8?'lungL':'lungR';}
   damageOrgan(organ,dmg*(organ==='heart'?1.18:0.95));
 }
 function bellyHit(tx,ty,dmg){
-  const L=bodyLayout();const r=Math.random();let organ;
-  if(tx<L.cx){organ=r<0.6?'liver':r<0.82?'bowel':'stomach';}
+  const r=Math.random();let organ;
+  if(tx<655){organ=r<0.6?'liver':r<0.82?'bowel':'stomach';}
   else{organ=r<0.5?'stomach':r<0.8?'bowel':'liver';}
   damageOrgan(organ,dmg*0.95);
 }
@@ -679,12 +682,12 @@ function fireWeapon(item,x,y){
   for(let i=0;i<n;i++){
     const tx=x+(rand(-1,1)+rand(-1,1))*item.spread*5.2;
     const ty=y+(rand(-1,1)+rand(-1,1))*item.spread*5.2;
-    S.tracers.push({x1:W/2+rand(-6,6),y1:H-2,x2:tx,y2:ty,t:1,color:item.burn?'#ffb04d':'#ffe98a'});
+    S.tracers.push({x1:IMGW/2+rand(-8,8),y1:IMGH+18,x2:tx,y2:ty,t:1,color:item.burn?'#ffb04d':'#ffe98a'});
     const zone=zoneAt(tx,ty);
     if(zone){hitAny=true;const res=applyBullet(item,zone,tx,ty);totDmg+=res.dmg;stoppedAny=stoppedAny||res.stopped;hitZones[zone]=(hitZones[zone]||0)+1;}
     else{addSplat(tx,ty,rand(2,5));spawnSparks(tx,ty,3,'#ffd9a0');}
   }
-  if(item.id!=='crossbow'&&item.id!=='tranq'&&item.id!=='taser')S.casings.push({x:W/2+rand(-16,16),y:H-2,vx:rand(130,320)*(Math.random()<.5?-1:1),vy:-rand(150,320),rot:rand(0,6),vr:rand(-9,9),t:5});
+  if(item.id!=='crossbow'&&item.id!=='tranq'&&item.id!=='taser')S.casings.push({x:IMGW/2+rand(-18,18),y:IMGH+18,vx:rand(140,340)*(Math.random()<.5?-1:1),vy:-rand(180,340),rot:rand(0,6),vr:rand(-9,9),t:5});
   S.flashes.push({t:.09,big:!!item.pellets&&item.pellets>1});S.shake=Math.max(S.shake,item.recoil||1);
   AU.play(item.snd);
   const now=S.time;
@@ -1062,242 +1065,105 @@ function mixHex(a,b,t){
   return 'rgb('+r+','+g+','+bl+')';
 }
 function capsule(x1,y1,x2,y2,w,color){ctx.strokeStyle=color;ctx.lineWidth=w;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();}
-function zoneAnchor(zone){
-  const L=bodyLayout();
-  switch(zone){
-    case 'head':return headCenter();
-    case 'chest':return{x:L.cx,y:lerp(L.shY,L.chestBot,.45)};
-    case 'belly':return{x:L.cx,y:(L.chestBot+L.bellyBot)/2};
-    case 'pelvis':return{x:L.cx,y:(L.bellyBot+L.pelvisBot)/2};
-    case 'armL':{const s=limbSeg(-1);return{x:lerp(s.ax,s.bx,.5),y:lerp(s.ay,s.by,.5)};}
-    case 'armR':{const s=limbSeg(1);return{x:lerp(s.ax,s.bx,.5),y:lerp(s.ay,s.by,.5)};}
-    case 'legL':{const s=legSeg(-1);return{x:lerp(s.ax,s.bx,.5),y:lerp(s.ay,s.by,.5)};}
-    case 'legR':{const s=legSeg(1);return{x:lerp(s.ax,s.bx,.5),y:lerp(s.ay,s.by,.5)};}
-  }
-  return{x:L.cx,y:H/2};
-}
+function zoneAnchor(zone){return ZONE_ANCHOR[zone]||{x:655,y:560};}
 function drawLabBack(){
-  const g=ctx.createLinearGradient(0,0,0,H);
-  g.addColorStop(0,'#0b1526');g.addColorStop(.55,'#0a1220');g.addColorStop(1,'#050a13');
-  ctx.fillStyle=g;ctx.fillRect(-40,-40,W+80,H+80);
-  // стенные панели
-  ctx.strokeStyle='rgba(96,140,190,0.07)';ctx.lineWidth=1;
-  for(let x=0;x<W;x+=86){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
-  for(let y=0;y<H;y+=86){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
-  // стилизованный знак на стене
-  ctx.save();ctx.globalAlpha=.055;ctx.fillStyle='#ff5b78';
-  const cy=H*0.30,cw=Math.min(W,H)*0.16;
-  ctx.fillRect(L_center()-cw*0.32,cy-cw,cw*0.64,cw*2);
-  ctx.fillRect(L_center()-cw,cy-cw*0.32,cw*2,cw*0.64);
-  ctx.restore();
-  function L_center(){return W*0.5;}
-  ctx.save();ctx.globalAlpha=.05;ctx.fillStyle='#9fd4ff';ctx.font='900 '+Math.floor(Math.min(W,H)*0.085)+'px system-ui';ctx.textAlign='center';ctx.fillText('СЕКТОР 7',W*0.5,H*0.895);ctx.restore();
-  // пол
-  const fg=ctx.createLinearGradient(0,H*0.86,0,H);fg.addColorStop(0,'#0d1728');fg.addColorStop(1,'#04070d');
-  ctx.fillStyle=fg;ctx.fillRect(-40,H*0.86,W+80,H*0.14+40);
-  ctx.strokeStyle='rgba(90,220,255,0.14)';ctx.beginPath();ctx.moveTo(0,H*0.86);ctx.lineTo(W,H*0.86);ctx.stroke();
-  // пятна на стене
+  // фоновая сцена: операционная (тот самый кадр из меню)
+  ctx.fillStyle='#050a13';ctx.fillRect(0,0,IMGW,IMGH);
+  if(sceneImg.complete&&sceneImg.naturalWidth){ctx.drawImage(sceneImg,0,0,IMGW,IMGH);}
+  else{
+    const g=ctx.createRadialGradient(768,340,80,768,420,900);g.addColorStop(0,'#12233a');g.addColorStop(1,'#050a13');
+    ctx.fillStyle=g;ctx.fillRect(0,0,IMGW,IMGH);
+    ctx.save();ctx.globalAlpha=.25;ctx.fillStyle='#ff5b78';
+    ctx.fillRect(733,220,70,150);ctx.fillRect(693,260,150,70);ctx.restore();
+  }
+  // лампа моргает
+  const fl=Math.random()<0.075?rand(0.10,0.22):rand(0.02,0.05);
+  const lg=ctx.createRadialGradient(838,66,20,838,66,420);
+  lg.addColorStop(0,'rgba(255,238,190,'+fl+')');lg.addColorStop(1,'rgba(255,238,190,0)');
+  ctx.fillStyle=lg;ctx.fillRect(300,0,1100,520);
+  const lg2=ctx.createRadialGradient(1355,105,15,1355,105,330);
+  lg2.addColorStop(0,'rgba(255,220,170,'+(fl*0.85)+')');lg2.addColorStop(1,'rgba(255,220,170,0)');
+  ctx.fillStyle=lg2;ctx.fillRect(1030,0,500,470);
+  // трафарет на стене
+  ctx.save();ctx.globalAlpha=.055;ctx.fillStyle='#9fd4ff';ctx.font='900 92px system-ui';ctx.textAlign='center';ctx.fillText('СЕКТОР 7',768,205);ctx.restore();
+  // капли и пятна на К-7 и столе
   for(const sp of S.splats){
-    ctx.save();ctx.globalAlpha=sp.alpha;ctx.fillStyle='#6d1020';ctx.beginPath();
+    ctx.save();ctx.globalAlpha=sp.alpha;ctx.fillStyle='#5d0d1c';ctx.beginPath();
     for(let i=0;i<sp.seed.length;i++){const a=i/sp.seed.length*Math.PI*2;const r=sp.size*sp.seed[i];const px=sp.x+Math.cos(a)*r,py=sp.y+Math.sin(a)*r*0.82;if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);}
-    ctx.closePath();ctx.fill();ctx.restore();
+    ctx.closePath();ctx.fill();
+    ctx.globalAlpha=sp.alpha*0.5;ctx.fillStyle='#8f1a2c';ctx.beginPath();ctx.ellipse(sp.x-sp.size*0.15,sp.y-sp.size*0.15,sp.size*0.5,sp.size*0.3,0,0,Math.PI*2);ctx.fill();
+    ctx.restore();
   }
 }
 function drawPool(){
   if(!S.gore)return;
-  const L=bodyLayout();
-  const rp=clamp(S.bloodLost/16,0,Math.min(W*0.17,130));
-  if(rp<4)return;
-  ctx.save();ctx.globalAlpha=.85;ctx.fillStyle='#4d0816';
-  ctx.beginPath();ctx.ellipse(L.cx,H*0.9,rp,rp*0.22,0,0,Math.PI*2);ctx.fill();
-  ctx.globalAlpha=.5;ctx.fillStyle='#7a1024';
-  ctx.beginPath();ctx.ellipse(L.cx-rp*0.2,H*0.9-2,rp*0.55,rp*0.12,0,0,Math.PI*2);ctx.fill();
+  const rp=clamp(S.bloodLost/14,0,150);
+  if(rp<5)return;
+  ctx.save();ctx.globalAlpha=.88;ctx.fillStyle='#3d0613';
+  ctx.beginPath();ctx.ellipse(700,665,rp,rp*0.22,0,0,Math.PI*2);ctx.fill();
+  ctx.globalAlpha=.55;ctx.fillStyle='#7a1024';
+  ctx.beginPath();ctx.ellipse(678,662,rp*0.55,rp*0.11,0,0,Math.PI*2);ctx.fill();
   ctx.restore();
-}
-function skinF(){return S.rhythm==='arrest'?0.62:clamp(S.vitals.consciousness/100,0,1)*0.0+ (1-clamp(S.vitals.consciousness/100,0,1))*0.28;}
-function drawBody(){
-  const L=bodyLayout();const f=skinF();
-  const skin=mixHex('#d3a57f','#828793',f),skinD=mixHex('#a97e56','#5f636d',f),seam=mixHex('#7d5a3e','#3f434c',f),boot=mixHex('#3a4356','#2c3038',f);
-  const breathe=S.rhythm==='arrest'?1:1+Math.sin(S.time*1.6)*0.022;
-  if(S.xray||S.surgery){drawBodyXray(L);return;}
-  // ноги
-  for(const side of [-1,1]){
-    const s=legSeg(side);
-    capsule(s.ax,s.ay,s.bx,s.by,L.legW*2,skin);
-    capsule(s.ax,s.ay,s.bx,s.by,L.legW*2-8,mixHex('#d8ac85','#878c98',f));
-    const kx=lerp(s.ax,s.bx,.55),ky=lerp(s.ay,s.by,.55);
-    ctx.strokeStyle=seam;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(kx-L.legW*0.8,ky);ctx.lineTo(kx+L.legW*0.8,ky);ctx.stroke();
-    // ботинок
-    capsule(s.bx-2,s.by-2,s.bx+side*6,s.by+2,L.legW*1.7,boot);
-  }
-  // руки
-  for(const side of [-1,1]){
-    const s=limbSeg(side);
-    capsule(s.ax,s.ay,s.bx,s.by,L.armW*2,skin);
-    capsule(s.ax,s.ay,s.bx,s.by,L.armW*2-7,mixHex('#d8ac85','#878c98',f));
-    const ex=lerp(s.ax,s.bx,.55),ey=lerp(s.ay,s.by,.55);
-    ctx.strokeStyle=seam;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(ex-L.armW*0.8,ey);ctx.lineTo(ex+L.armW*0.8,ey);ctx.stroke();
-    ctx.beginPath();ctx.arc(s.bx,s.by+4,L.armW*1.02,0,Math.PI*2);ctx.fillStyle=skinD;ctx.fill();
-    ctx.strokeStyle=seam;ctx.lineWidth=2;ctx.stroke();
-  }
-  // торс
-  ctx.save();ctx.translate(L.cx,0);ctx.scale(breathe,1);ctx.translate(-L.cx,0);
-  ctx.beginPath();
-  ctx.moveTo(L.cx-L.shHalf*0.92,L.shY+4);
-  ctx.bezierCurveTo(L.cx-L.shHalf*1.0,L.chestBot-30,L.cx-L.hipHalf*0.95,L.bellyBot-24,L.cx-L.hipHalf,L.pelvisBot-8);
-  ctx.quadraticCurveTo(L.cx,L.pelvisBot+12,L.cx+L.hipHalf,L.pelvisBot-8);
-  ctx.bezierCurveTo(L.cx+L.hipHalf*0.95,L.bellyBot-24,L.cx+L.shHalf*1.0,L.chestBot-30,L.cx+L.shHalf*0.92,L.shY+4);
-  ctx.quadraticCurveTo(L.cx,L.shY-16,L.cx-L.shHalf*0.92,L.shY+4);
-  ctx.closePath();
-  const tg=ctx.createLinearGradient(0,L.shY,0,L.pelvisBot);tg.addColorStop(0,mixHex('#d8ac85','#878c98',f));tg.addColorStop(.55,skin);tg.addColorStop(1,skinD);
-  ctx.fillStyle=tg;ctx.fill();ctx.strokeStyle=seam;ctx.lineWidth=2.4;ctx.stroke();
-  // грудная пластина и швы
-  ctx.strokeStyle=mixHex('#8a6547','#4a4e57',f);ctx.setLineDash([6,5]);ctx.lineWidth=1.6;
-  ctx.beginPath();ctx.moveTo(L.cx,L.shY+6);ctx.lineTo(L.cx,L.pelvisBot-16);ctx.stroke();
-  ctx.setLineDash([]);
-  // ключицы и пресс
-  ctx.strokeStyle=seam;ctx.lineWidth=1.8;
-  ctx.beginPath();ctx.moveTo(L.cx-L.shHalf*0.55,L.shY+16);ctx.quadraticCurveTo(L.cx-L.shHalf*0.22,L.shY+26,L.cx-6,L.shY+14);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(L.cx+L.shHalf*0.55,L.shY+16);ctx.quadraticCurveTo(L.cx+L.shHalf*0.22,L.shY+26,L.cx+6,L.shY+14);ctx.stroke();
-  for(let i=0;i<3;i++){const y=lerp(L.chestBot+8,L.bellyBot-12,i/2);ctx.beginPath();ctx.moveTo(L.cx-L.shHalf*0.42,y);ctx.quadraticCurveTo(L.cx,y+5,L.cx+L.shHalf*0.42,y);ctx.stroke();}
-  ctx.beginPath();ctx.arc(L.cx,L.bellyBot-2,2.4,0,Math.PI*2);ctx.fillStyle=seam;ctx.fill();
-  // плечевые кольца
-  for(const side of [-1,1]){ctx.beginPath();ctx.arc(L.cx+side*(L.shHalf-2),L.shY+8,L.armW*1.05,0,Math.PI*2);ctx.strokeStyle=seam;ctx.lineWidth=3;ctx.stroke();}
-  ctx.restore();
-  // шея и голова (голову можно наклонять рукой)
-  const hc=headCenter();
-  capsule(L.cx,L.shY-2,hc.x,hc.y+L.headR*0.35,L.headR*0.6,skinD);
-  ctx.save();ctx.translate(hc.x,hc.y);ctx.rotate(S.pose.head||0);ctx.translate(-hc.x,-hc.y);
-  ctx.beginPath();ctx.arc(hc.x,hc.y,L.headR,0,Math.PI*2);
-  const hg=ctx.createRadialGradient(hc.x-L.headR*0.3,hc.y-L.headR*0.3,L.headR*0.2,hc.x,hc.y,L.headR);
-  hg.addColorStop(0,mixHex('#e2b98d','#9297a3',f));hg.addColorStop(1,skin);
-  ctx.fillStyle=hg;ctx.fill();ctx.strokeStyle=seam;ctx.lineWidth=2.4;ctx.stroke();
-  // уши
-  for(const side of [-1,1]){ctx.beginPath();ctx.arc(hc.x+side*L.headR*0.98,hc.y+2,L.headR*0.14,0,Math.PI*2);ctx.fillStyle=skinD;ctx.fill();}
-  // шов на голове (панель андроида)
-  ctx.strokeStyle=seam;ctx.setLineDash([5,4]);ctx.lineWidth=1.4;
-  ctx.beginPath();ctx.arc(hc.x,hc.y,L.headR*0.82,Math.PI*1.15,Math.PI*1.85);ctx.stroke();ctx.setLineDash([]);
-  // датчик на лбу
-  const blink=0.5+0.5*Math.sin(S.time*2.4);
-  ctx.save();ctx.globalAlpha=S.rhythm==='arrest'?0.15:0.4+0.6*blink;ctx.fillStyle='#ff5b6e';ctx.shadowColor='#ff5b6e';ctx.shadowBlur=8;
-  ctx.beginPath();ctx.arc(hc.x+L.headR*0.42,hc.y-L.headR*0.5,3.4,0,Math.PI*2);ctx.fill();ctx.restore();
-  drawFace({cx:hc.x,headY:hc.y,headR:L.headR,shY:L.shY,chestBot:L.chestBot,bellyBot:L.bellyBot,pelvisBot:L.pelvisBot,legEnd:L.legEnd,shHalf:L.shHalf,hipHalf:L.hipHalf,armW:L.armW,legW:L.legW},f);
-  ctx.restore();
-}
-function drawFace(L,f){
-  const hy=L.headY,r=L.headR,arrest=S.rhythm==='arrest';
-  const pain=S.vitals.pain;
-  ctx.lineWidth=2.2;ctx.strokeStyle=mixHex('#33241a','#23262c',f);
-  for(const side of [-1,1]){
-    const ex=L.cx+side*r*0.4,ey=hy-r*0.05;
-    if(arrest){
-      ctx.beginPath();ctx.moveTo(ex-5,ey-5);ctx.lineTo(ex+5,ey+5);ctx.moveTo(ex+5,ey-5);ctx.lineTo(ex-5,ey+5);ctx.stroke();
-    }else{
-      const worried=pain>55?side*0.22:0;
-      ctx.save();ctx.translate(ex,ey);ctx.rotate(worried);
-      ctx.beginPath();ctx.moveTo(-6,0);ctx.lineTo(6,0);ctx.stroke();
-      ctx.restore();
-      // светящаяся точка глаза
-      ctx.save();ctx.globalAlpha=.9;ctx.fillStyle=pain>70?'#ffb04d':'#57f5d0';ctx.shadowColor=ctx.fillStyle;ctx.shadowBlur=7;
-      ctx.beginPath();ctx.arc(ex,ey+3.4,2.3,0,Math.PI*2);ctx.fill();ctx.restore();
-    }
-  }
-  // рот
-  const my=hy+r*0.48;
-  if(pain>62&&!arrest){ // оскал
-    ctx.fillStyle='#2a1616';roundRectPath(L.cx-r*0.3,my-5,r*0.6,10,5);ctx.fill();
-    ctx.strokeStyle='#d8d0c4';ctx.lineWidth=1;
-    for(let i=-1;i<=1;i++){ctx.beginPath();ctx.moveTo(L.cx+i*r*0.18-2,my-5);ctx.lineTo(L.cx+i*r*0.18-2,my+5);ctx.stroke();}
-  }else if(S.vitals.consciousness<30&&!arrest){ // обмякший
-    ctx.strokeStyle=mixHex('#33241a','#23262c',f);ctx.beginPath();ctx.moveTo(L.cx-r*0.28,my+Math.sin(S.time*3)*1.5);ctx.quadraticCurveTo(L.cx,my+5,L.cx+r*0.28,my);ctx.stroke();
-  }else{
-    ctx.strokeStyle=mixHex('#33241a','#23262c',f);ctx.beginPath();ctx.moveTo(L.cx-r*0.26,my);ctx.lineTo(L.cx+r*0.26,my);ctx.stroke();
-  }
 }
 function roundRectPath(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
-function drawBodyXray(L){
-  const hc=headCenter();
-  ctx.save();
-  ctx.globalAlpha=.16;ctx.fillStyle='#63d8ff';
-  ctx.beginPath();ctx.arc(hc.x,hc.y,L.headR,0,Math.PI*2);ctx.fill();
-  capsule(L.cx,L.shY,L.cx,L.pelvisBot,L.shHalf*1.7,'#63d8ff');
-  ctx.restore();
-  ctx.save();
-  ctx.strokeStyle='#dff3ff';ctx.shadowColor='#bfeaff';ctx.shadowBlur=6;ctx.lineWidth=3;ctx.lineCap='round';
-  ctx.globalAlpha=.92;
+function drawBodyXray(){
+  const op=S.surgery;
+  ctx.save();ctx.fillStyle=op?'rgba(6,18,32,0.52)':'rgba(4,16,30,0.68)';ctx.fillRect(0,0,IMGW,IMGH);ctx.restore();
+  // ===== скелет =====
+  ctx.save();ctx.strokeStyle='#e8f7ff';ctx.shadowColor='#bfeaff';ctx.shadowBlur=8;ctx.lineWidth=4;ctx.lineCap='round';ctx.globalAlpha=.95;
   // череп
-  ctx.beginPath();ctx.arc(hc.x,hc.y,L.headR*0.82,0,Math.PI*2);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(hc.x-L.headR*0.4,hc.y+L.headR*0.62);ctx.lineTo(hc.x+L.headR*0.4,hc.y+L.headR*0.62);ctx.stroke();
-  // позвоночник
-  for(let i=0;i<9;i++){const y=lerp(L.shY+4,L.pelvisBot-10,i/8);roundRectPath(L.cx-6,y,12,7,3);ctx.stroke();}
-  // рёбра
-  for(let i=0;i<4;i++){const y=lerp(L.shY+14,L.chestBot-12,i/3);for(const side of [-1,1]){ctx.beginPath();ctx.moveTo(L.cx+side*4,y);ctx.quadraticCurveTo(L.cx+side*L.shHalf*0.62,y+2,L.cx+side*L.shHalf*0.78,y+16);ctx.stroke();}}
-  // таз
-  ctx.beginPath();ctx.ellipse(L.cx,L.pelvisBot-4,L.hipHalf*0.72,13,0,0,Math.PI);ctx.stroke();
-  // конечности
-  for(const side of [-1,1]){
-    const a=limbSeg(side);capsule(a.ax,a.ay,a.bx,a.by,L.armW*1.1,'#dff3ff');
-    const l=legSeg(side);capsule(l.ax,l.ay,l.bx,l.by,L.legW*1.1,'#dff3ff');
-  }
+  ctx.beginPath();ctx.arc(HEAD.x,HEAD.y,42,0,Math.PI*2);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(HEAD.x-21,HEAD.y+31);ctx.lineTo(HEAD.x+23,HEAD.y+31);ctx.stroke();
+  ctx.beginPath();ctx.arc(HEAD.x-13,HEAD.y-4,6,0,Math.PI*2);ctx.arc(HEAD.x+14,HEAD.y-4,6,0,Math.PI*2);ctx.stroke();
+  // позвоночник вдоль тела
+  const sa=Math.atan2(SPINE.b.y-SPINE.a.y,SPINE.b.x-SPINE.a.x);
+  for(let i=0;i<9;i++){const t=i/8;const x=lerp(SPINE.a.x,SPINE.b.x,t),y=lerp(SPINE.a.y,SPINE.b.y,t);ctx.save();ctx.translate(x,y);ctx.rotate(sa);roundRectPath(-5,-8,10,16,3);ctx.stroke();ctx.restore();}
+  // рёбра — дуги вдоль грудной клетки
+  for(const [rx,ry] of [[500,462],[525,466],[550,470],[575,474],[600,478],[625,482]]){ctx.beginPath();ctx.ellipse(rx,ry,12,28,-0.35,Math.PI*1.05,Math.PI*1.8);ctx.stroke();}
+  // таз — кольцо
+  ctx.beginPath();ctx.ellipse(788,505,48,16,0.28,0,Math.PI*2);ctx.stroke();
+  // кости рук и ног
+  for(const s of [ZX.armL,ZX.armR]){capsule(s.a.x,s.a.y,s.mid.x,s.mid.y,9,'#e8f7ff');capsule(s.mid.x,s.mid.y,s.b.x,s.b.y,8,'#e8f7ff');}
+  for(const s of [ZX.legL,ZX.legR]){capsule(s.a.x,s.a.y,s.mid.x,s.mid.y,12,'#e8f7ff');capsule(s.mid.x,s.mid.y,s.b.x,s.b.y,10,'#e8f7ff');}
   ctx.restore();
-  // органы, по альфе по повреждению
-  const od=k=>0.22+S.organs[k]/100*0.66;
-  const organ=(k,fill)=>{ctx.save();ctx.globalAlpha=od(k);ctx.fillStyle=fill;ctx.shadowColor=fill;ctx.shadowBlur=10;fillOrgan(k);ctx.restore();};
-  function fillOrgan(k){
-    ctx.beginPath();
-    switch(k){
-      case 'heart':{const y=lerp(L.shY,L.chestBot,.72);ctx.arc(L.cx-8,y,11,0,Math.PI*2);ctx.arc(L.cx+6,y-2,9,0,Math.PI*2);ctx.fill();break;}
-      case 'lungL':ctx.ellipse(L.cx-L.shHalf*0.42,lerp(L.shY,L.chestBot,.38),L.shHalf*0.3,L.chestBot*0.16,0,0,Math.PI*2);ctx.fill();break;
-      case 'lungR':ctx.ellipse(L.cx+L.shHalf*0.42,lerp(L.shY,L.chestBot,.38),L.shHalf*0.3,L.chestBot*0.16,0,0,Math.PI*2);ctx.fill();break;
-      case 'liver':{const y=lerp(L.chestBot,L.bellyBot,.28);ctx.ellipse(L.cx-L.shHalf*0.35,y,L.shHalf*0.34,16,-0.2,0,Math.PI*2);ctx.fill();break;}
-      case 'stomach':{const y=lerp(L.chestBot,L.bellyBot,.32);ctx.ellipse(L.cx+L.shHalf*0.32,y,15,13,0.3,0,Math.PI*2);ctx.fill();break;}
-      case 'bowel':{const y=lerp(L.chestBot,L.bellyBot,.72);for(let i=0;i<5;i++){ctx.arc(L.cx+Math.sin(i*2.4)*L.shHalf*0.3,y+Math.cos(i*1.7)*7,7.5,0,Math.PI*2);}ctx.fill();break;}
-      case 'brain':ctx.arc(L.cx,L.headY-L.headR*0.15,L.headR*0.55,0,Math.PI*2);ctx.fill();break;
-    }
-  }
-  organ('heart','#ff5d78');organ('lungL','#7fd0ff');organ('lungR','#7fd0ff');organ('liver','#c98aff');organ('stomach','#ffd166');organ('bowel','#9dffb0');organ('brain','#ff9de2');
-  // переломы
-  ctx.save();ctx.strokeStyle='#ffffff';ctx.lineWidth=2.4;ctx.shadowColor='#fff';ctx.shadowBlur=5;
+  // ===== органы =====
+  const od=k=>0.25+S.organs[k]/100*0.7;
+  const organ=(k,fill)=>{const p=ORGAN_POS[k];ctx.save();ctx.globalAlpha=od(k);ctx.fillStyle=fill;ctx.shadowColor=fill;ctx.shadowBlur=12;
+    if(k==='heart'){ctx.beginPath();ctx.arc(p.x-6,p.y+2,11,0,Math.PI*2);ctx.arc(p.x+7,p.y-3,9,0,Math.PI*2);ctx.fill();}
+    else{ctx.beginPath();ctx.ellipse(p.x,p.y,p.rx,p.ry,p.rot||0,0,Math.PI*2);ctx.fill();}
+    ctx.restore();};
+  organ('lungL','#7fd0ff');organ('lungR','#7fd0ff');organ('heart','#ff5d78');organ('liver','#c98aff');organ('stomach','#ffd166');organ('bowel','#9dffb0');organ('brain','#ff9de2');
+  // ===== переломы =====
+  ctx.save();ctx.strokeStyle='#ffffff';ctx.lineWidth=2.6;ctx.shadowColor='#fff';ctx.shadowBlur=6;
   for(const fr of S.fractures){const fp=markerPos(fr);ctx.beginPath();ctx.moveTo(fp.x-Math.cos(fr.a)*fr.len,fp.y-Math.sin(fr.a)*fr.len);ctx.lineTo(fp.x+Math.cos(fr.a)*fr.len,fp.y+Math.sin(fr.a)*fr.len);ctx.moveTo(fp.x-Math.sin(fr.a)*fr.len*0.5,fp.y+Math.cos(fr.a)*fr.len*0.5);ctx.lineTo(fp.x+Math.sin(fr.a)*fr.len*0.5,fp.y-Math.cos(fr.a)*fr.len*0.5);ctx.stroke();}
   ctx.restore();
-  // застрявшие снаряды
-  for(const lod of S.lodged){const lp=markerPos(lod);ctx.save();ctx.fillStyle='#ffd34d';ctx.shadowColor='#ffd34d';ctx.shadowBlur=9;ctx.beginPath();ctx.arc(lp.x,lp.y,3.6,0,Math.PI*2);ctx.fill();ctx.restore();}
-  if(S.surgery)drawSurgeryLabels(L,hc);
+  // ===== застрявшие снаряды =====
+  for(const lod of S.lodged){const lp=markerPos(lod);ctx.save();ctx.fillStyle='#ffd34d';ctx.shadowColor='#ffd34d';ctx.shadowBlur=10;ctx.beginPath();ctx.arc(lp.x,lp.y,4.2,0,Math.PI*2);ctx.fill();ctx.restore();}
+  if(op)drawSurgeryLabels();
 }
-function drawSurgeryLabels(L,hc){
+function drawSurgeryLabels(){
   const rows=[
-    {k:'brain',side:-1,y:0.22,label:'Мозг'},
-    {k:'lungL',side:-1,y:0.34,label:'Лёгкое лев.'},
-    {k:'liver',side:-1,y:0.45,label:'Печень'},
-    {k:'bowel',side:-1,y:0.56,label:'Кишечник'},
-    {k:'heart',side:1,y:0.29,label:'Сердце'},
-    {k:'lungR',side:1,y:0.40,label:'Лёгкое прав.'},
-    {k:'stomach',side:1,y:0.50,label:'Желудок'},
+    {k:'brain',side:-1,y:128,label:'Мозг'},
+    {k:'lungL',side:-1,y:196,label:'Лёгкое лев.'},
+    {k:'liver',side:-1,y:264,label:'Печень'},
+    {k:'bowel',side:-1,y:332,label:'Кишечник'},
+    {k:'heart',side:1,y:162,label:'Сердце'},
+    {k:'lungR',side:1,y:230,label:'Лёгкое прав.'},
+    {k:'stomach',side:1,y:298,label:'Желудок'},
   ];
-  const organPos=k=>{
-    switch(k){
-      case 'brain':return{x:hc.x,y:hc.y-L.headR*0.15};
-      case 'heart':return{x:L.cx-8,y:lerp(L.shY,L.chestBot,.72)};
-      case 'lungL':return{x:L.cx-L.shHalf*0.42,y:lerp(L.shY,L.chestBot,.38)};
-      case 'lungR':return{x:L.cx+L.shHalf*0.42,y:lerp(L.shY,L.chestBot,.38)};
-      case 'liver':return{x:L.cx-L.shHalf*0.35,y:lerp(L.chestBot,L.bellyBot,.28)};
-      case 'stomach':return{x:L.cx+L.shHalf*0.32,y:lerp(L.chestBot,L.bellyBot,.32)};
-      case 'bowel':return{x:L.cx,y:lerp(L.chestBot,L.bellyBot,.72)};
-    }
-  };
-  ctx.save();ctx.font='700 10px system-ui';ctx.lineWidth=1.2;
+  ctx.save();ctx.font='700 12px system-ui';ctx.lineWidth=1.4;
   for(const r of rows){
-    const p=organPos(r.k);const v=Math.round(S.organs[r.k]);
-    const lx=r.side<0?10:W-10, ly=H*r.y;
-    ctx.strokeStyle='rgba(150,220,255,0.5)';
-    ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(r.side<0?lx+86:lx-86,ly);ctx.stroke();
-    ctx.fillStyle='rgba(8,16,28,0.82)';
-    const tw=86;
-    ctx.fillRect(r.side<0?lx:lx-tw,ly-9,tw,15);
-    ctx.strokeStyle='rgba(120,190,235,0.35)';ctx.strokeRect(r.side<0?lx:lx-tw,ly-9,tw,15);
+    const p=ORGAN_POS[r.k];const v=Math.round(S.organs[r.k]);
+    const bw=118,bh=21;
+    const bx=r.side<0?14:IMGW-14-bw, by=r.y;
+    const ex=r.side<0?bx+bw:bx;
+    ctx.strokeStyle='rgba(150,220,255,0.55)';
+    ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(ex,by+bh/2);ctx.stroke();
+    ctx.fillStyle='rgba(6,14,26,0.85)';ctx.fillRect(bx,by,bw,bh);
+    ctx.strokeStyle='rgba(120,190,235,0.4)';ctx.strokeRect(bx,by,bw,bh);
     ctx.fillStyle=v<25?'#8df5d8':v<55?'#ffc861':v<80?'#ff9a3d':'#ff5d78';
     ctx.textAlign='left';
-    ctx.fillText(r.label+' · '+v+'%',(r.side<0?lx:lx-tw)+4,ly+2);
+    ctx.fillText(r.label+' · '+v+'%',bx+6,by+15);
   }
   ctx.restore();
 }
@@ -1306,23 +1172,23 @@ function drawWounds(){
     if(w.treated)continue;
     const p=markerPos(w);
     ctx.save();ctx.translate(p.x,p.y);
-    ctx.fillStyle='#3d0410';ctx.beginPath();ctx.ellipse(0,0,3.6,2.6,0.4,0,Math.PI*2);ctx.fill();
-    ctx.strokeStyle='rgba(255,120,140,0.5)';ctx.lineWidth=1;ctx.beginPath();ctx.ellipse(0,0,5,3.8,0.4,0,Math.PI*2);ctx.stroke();
+    ctx.fillStyle='#3d0410';ctx.beginPath();ctx.ellipse(0,0,6.4,4.6,0.4,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='rgba(255,120,140,0.55)';ctx.lineWidth=1.6;ctx.beginPath();ctx.ellipse(0,0,9.5,6.6,0.4,0,Math.PI*2);ctx.stroke();
     ctx.restore();
   }
-  for(const lod of S.lodged){const p=markerPos(lod);ctx.save();ctx.fillStyle='#e8e4d8';ctx.beginPath();ctx.arc(p.x,p.y,2.2,0,Math.PI*2);ctx.fill();ctx.restore();}
+  for(const lod of S.lodged){const p=markerPos(lod);ctx.save();ctx.fillStyle='#e8e4d8';ctx.beginPath();ctx.arc(p.x,p.y,3.4,0,Math.PI*2);ctx.fill();ctx.restore();}
   // повязки
   for(const b of S.bandages){
     const a=zoneAnchor(b.zone);
     ctx.save();ctx.translate(a.x,a.y);ctx.rotate(b.zone==='belly'?0.15:-0.1);
     if(b.kind==='tourniquet'){
-      ctx.fillStyle='#241a12';roundRectPath(-16,-7,32,14,4);ctx.fill();
-      ctx.fillStyle='#c63b2e';roundRectPath(-4,-7,8,14,3);ctx.fill();
+      ctx.fillStyle='#241a12';roundRectPath(-24,-10,48,20,6);ctx.fill();
+      ctx.fillStyle='#c63b2e';roundRectPath(-6,-10,12,20,4);ctx.fill();
     }else{
-      ctx.fillStyle='#ddd6c8';roundRectPath(-17,-9,34,18,5);ctx.fill();
+      ctx.fillStyle='#ddd6c8';roundRectPath(-25,-13,50,26,7);ctx.fill();
       ctx.strokeStyle='#b8b0a0';ctx.lineWidth=1.6;
-      for(let i=-1;i<=1;i++){ctx.beginPath();ctx.moveTo(-17,i*5.4);ctx.lineTo(17,i*5.4);ctx.stroke();}
-      ctx.fillStyle='#c63b2e';ctx.fillRect(-5,-4.5,10,9);ctx.fillStyle='#ddd6c8';ctx.fillRect(-2,-4.5,4,9);ctx.fillRect(-5,-1.5,10,3);
+      for(let i=-1;i<=1;i++){ctx.beginPath();ctx.moveTo(-25,i*7.8);ctx.lineTo(25,i*7.8);ctx.stroke();}
+      ctx.fillStyle='#c63b2e';ctx.fillRect(-7.5,-6.5,15,13);ctx.fillStyle='#ddd6c8';ctx.fillRect(-3,-6.5,6,13);ctx.fillRect(-7.5,-2.2,15,4.4);
     }
     ctx.restore();
   }
@@ -1330,9 +1196,9 @@ function drawWounds(){
 
 /* ============ ЧАСТИЦЫ, ТРАССЕРЫ, ВСПЫШКИ ============ */
 function updateFx(dt){
-  for(const p of S.particles){p.vy+=560*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.t-=dt;if(p.y>H*0.9){p.y=H*0.9;p.vy*=-0.35;p.vx*=0.55;}}
+  for(const p of S.particles){p.vy+=560*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.t-=dt;if(p.y>655){p.y=655;p.vy*=-0.35;p.vx*=0.55;}}
   S.particles=S.particles.filter(p=>p.t>0);
-  for(const c of S.casings){c.vy+=620*dt;c.x+=c.vx*dt;c.y+=c.vy*dt;c.rot+=c.vr*dt;c.t-=dt;if(c.y>H*0.93){c.y=H*0.93;c.vy*=-0.4;c.vx*=0.6;}}
+  for(const c of S.casings){c.vy+=640*dt;c.x+=c.vx*dt;c.y+=c.vy*dt;c.rot+=c.vr*dt;c.t-=dt;if(c.y>665){c.y=665;c.vy*=-0.4;c.vx*=0.6;}}
   S.casings=S.casings.filter(c=>c.t>0);
   for(const t of S.tracers)t.t-=dt*7.5;
   S.tracers=S.tracers.filter(t=>t.t>0);
@@ -1355,8 +1221,8 @@ function drawFx(){
   for(const c of S.casings){ctx.save();ctx.translate(c.x,c.y);ctx.rotate(c.rot);ctx.fillStyle='#d9a83e';ctx.fillRect(-2.6,-1.5,5.2,3);ctx.fillStyle='#8a6a1e';ctx.fillRect(1.4,-1.5,1.2,3);ctx.restore();}
   // вспышка выстрела
   for(const f of S.flashes){const p=clamp(f.t/(f.big?0.24:0.09),0,1);const r=(f.big?150:80)*(1.15-p*0.55);
-    const g=ctx.createRadialGradient(W/2,H+8,4,W/2,H+8,r);g.addColorStop(0,'rgba(255,240,170,'+(0.9*p)+')');g.addColorStop(0.45,'rgba(255,170,70,'+(0.55*p)+')');g.addColorStop(1,'rgba(255,120,30,0)');
-    ctx.fillStyle=g;ctx.fillRect(W/2-r,H-r,r*2,r+10);}
+    const g=ctx.createRadialGradient(IMGW/2,IMGH+6,4,IMGW/2,IMGH+6,r);g.addColorStop(0,'rgba(255,240,170,'+(0.9*p)+')');g.addColorStop(0.45,'rgba(255,170,70,'+(0.55*p)+')');g.addColorStop(1,'rgba(255,120,30,0)');
+    ctx.fillStyle=g;ctx.fillRect(IMGW/2-r,IMGH-r,r*2,r+12);}
 }
 function drawSwing(){
   const s=S.swing;if(!s)return;
@@ -1480,27 +1346,33 @@ function resize(){
   W=Math.max(300,Math.floor(r.width));H=Math.max(300,Math.floor(r.height));
   canvas.width=W*DPR;canvas.height=H*DPR;canvas.style.width=W+'px';canvas.style.height=H+'px';
   ctx.setTransform(DPR,0,0,DPR,0,0);
+  FIT.s=Math.min(W/IMGW,H/IMGH);FIT.ox=(W-IMGW*FIT.s)/2;FIT.oy=(H-IMGH*FIT.s)/2;
+  clampView();
 }
 new ResizeObserver(()=>resize()).observe(stageEl);
 
-function clampView(){const v=S.view;const wx=W-W*v.scale,wy=H-H*v.scale;v.ox=clamp(v.ox,wx,0);v.oy=clamp(v.oy,wy,0);}
-function zoomAt(f,mx,my){const v=S.view;const ns=clamp(v.scale*f,0.6,2.5);const k=ns/v.scale;v.ox=mx-(mx-v.ox)*k;v.oy=my-(my-v.oy)*k;v.scale=ns;clampView();}
+function clampView(){const v=S.view;if(v.scale<=1.001){v.scale=1;v.ox=0;v.oy=0;return;}const l=v.scale*FIT.ox,r=v.scale*(FIT.ox+FIT.s*IMGW),t=v.scale*FIT.oy,b=v.scale*(FIT.oy+FIT.s*IMGH),m=90;v.ox=clamp(v.ox,m-r,W-m-l);v.oy=clamp(v.oy,m-b,H-m-t);}
+function zoomAt(f,mx,my){
+  const v=S.view;const ns=clamp(v.scale*f,1,2.6);
+  const wx=((mx-v.ox)/v.scale-FIT.ox)/FIT.s, wy=((my-v.oy)/v.scale-FIT.oy)/FIT.s;
+  v.scale=ns;v.ox=mx-(FIT.ox+wx*FIT.s)*v.scale;v.oy=my-(FIT.oy+wy*FIT.s)*v.scale;clampView();
+}
 function zoomCenter(f){zoomAt(f,W/2,H/2);}
 function resetView(){S.view.scale=1;S.view.ox=0;S.view.oy=0;}
 function render(){
-  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#050a13';ctx.fillRect(0,0,W,H);
   const sh=S.shake,v=S.view;
   ctx.save();
-  ctx.translate(v.ox,v.oy);ctx.scale(v.scale,v.scale);
+  ctx.translate(v.ox,v.oy);ctx.scale(v.scale,v.scale);ctx.translate(FIT.ox,FIT.oy);ctx.scale(FIT.s,FIT.s);
   if(sh>0)ctx.translate((Math.random()-0.5)*sh*2.4,(Math.random()-0.5)*sh*2.4);
   drawLabBack();
   drawPool();
-  drawBody();
+  if(S.xray||S.surgery)drawBodyXray();
   drawWounds();
   drawFx();
   drawSwing();
   drawFloats();
-  drawCrosshair(v.scale);
+  drawCrosshair(v.scale*FIT.s);
   ctx.restore();
   drawEcg();
 }
@@ -1531,24 +1403,15 @@ function frame(ts){
 }
 
 /* ============ ВВОД ============ */
-function canvasPos(e){const r=canvas.getBoundingClientRect();const v=S.view;return{x:(e.clientX-r.left-v.ox)/v.scale,y:(e.clientY-r.top-v.oy)/v.scale};}
-function applyPoseAt(p){
-  const L=bodyLayout();const d=S.poseDrag;if(!d)return;
-  const zone=d.zone;
-  if(zone==='armL'||zone==='armR'){
-    const side=zone==='armL'?-1:1,raw=rawLimbSeg(side);
-    const base=Math.atan2(raw.by-raw.ay,raw.bx-raw.ax),want=Math.atan2(p.y-raw.ay,p.x-raw.ax);
-    S.pose[zone]=clamp(normAngle(want-base),-2.35,2.35);
-  }else if(zone==='legL'||zone==='legR'){
-    const side=zone==='legL'?-1:1,raw=rawLegSeg(side);
-    const base=Math.atan2(raw.by-raw.ay,raw.bx-raw.ax),want=Math.atan2(p.y-raw.ay,p.x-raw.ax);
-    S.pose[zone]=clamp(normAngle(want-base),-0.62,0.62);
-  }else if(zone==='head'){
-    const py=L.shY-2;
-    S.pose.head=clamp(Math.atan2(p.x-L.cx,-(p.y-py)),-0.5,0.5);
-  }else{
-    toast('Это не тянется — только руки, ноги и голова');S.poseDrag=null;
-  }
+function canvasPos(e){const r=canvas.getBoundingClientRect();const v=S.view;return{x:((e.clientX-r.left-v.ox)/v.scale-FIT.ox)/FIT.s,y:((e.clientY-r.top-v.oy)/v.scale-FIT.oy)/FIT.s};}
+const FACTS={head:['Череп 7 мм. Внутри — «мозг» по спецификации К-7','Глазницы целы. Впечатление портит только лоб'],chest:['14 пар рёбер, грудина, сердце размером с кулак','Лёгкие двусторонние. Одно из них даже спорит'],belly:['Печень справа, желудок слева, кишечник — «там»','Печень кровоточит охотно. Проверено десятки раз'],pelvis:['Таз — кольцо. Держит всё, что выше пояса','Копчик на месте. Проверено рукой'],armL:['Плечо, локоть, кисть. Кости целы. Пока что','Сжимается в кулак по запросу. Проверять не рекомендую'],armR:['То же, что слева, но справа. Неожиданно, да','Кисть крепкая. Держится за стол. Как и раньше'],legL:['Бедро, колено, голень, стопа','Стопа чешется. Это галлюцинация оператора'],legR:['То же, что слева, но справа','Икры крепче, чем у среднего бегуна. Говорят']};
+function inspectZone(z){
+  if(!z){toast('Пусто. Красиво, но пусто');return;}
+  const fr=S.fractures.filter(f=>f.zone===z).length;
+  const fact=FACTS[z][Math.floor(Math.random()*FACTS[z].length)];
+  AU.play('click');
+  if(fr>0){toast('Щелчок… '+fact);log('Осмотр ('+ZONE_NAME[z]+'): '+fact+' ⚠ под пальцами — перелом!','warn');gainPain(3);}
+  else{toast(fact);log('Осмотр ('+ZONE_NAME[z]+'): '+fact);}
 }
 canvas.addEventListener('pointerdown',e=>{
   e.preventDefault();AU.ensure();
@@ -1558,12 +1421,7 @@ canvas.addEventListener('pointerdown',e=>{
   S.aim=p;
   if(!S.running||S.paused||S.over)return;
   const it=ITEM_BY_ID[selected];if(!it)return;
-  if(it.cat==='hand'){
-    const z=zoneAt(p.x,p.y);
-    if(z)S.poseDrag={zone:z};
-    else toast('Тут не за что ухватиться');
-    return;
-  }
+  if(it.cat==='hand'){inspectZone(zoneAt(p.x,p.y));return;}
   if(it.cat==='fire'){
     if(it.auto){S.fireHeld=true;S.fireTimer=it.rate;fireWeapon(it,p.x,p.y);}
     else fireWeapon(it,p.x,p.y);
@@ -1572,27 +1430,13 @@ canvas.addEventListener('pointerdown',e=>{
 });
 canvas.addEventListener('pointermove',e=>{
   if(S.panning){S.view.ox=S.panning.ox+(e.clientX-S.panning.x);S.view.oy=S.panning.oy+(e.clientY-S.panning.y);clampView();return;}
-  const p=canvasPos(e);
-  if(S.poseDrag){applyPoseAt(p);return;}
-  S.aim=p;
+  S.aim=canvasPos(e);
 });
-function endPoseDrag(){
-  if(S.poseDrag){
-    const z=S.poseDrag.zone;
-    const zf=S.fractures.filter(f=>f.zone===z).length;
-    if(zf>0){gainPain(3*zf);toast('Ай — там же перелом!');}
-    S.poseDrag=null;
-  }
-}
-const stopFire=()=>{S.fireHeld=false;S.panning=null;endPoseDrag();};
+const stopFire=()=>{S.fireHeld=false;S.panning=null;};
 canvas.addEventListener('pointerup',stopFire);
 canvas.addEventListener('pointercancel',stopFire);
-canvas.addEventListener('pointerleave',()=>{S.fireHeld=false;S.panning=null;endPoseDrag();S.aim={x:-999,y:-999};});
+canvas.addEventListener('pointerleave',()=>{S.fireHeld=false;S.panning=null;S.aim={x:-999,y:-999};});
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
-canvas.addEventListener('dblclick',e=>{
-  const it=ITEM_BY_ID[selected];
-  if(it&&it.cat==='hand'){S.pose={armL:0,armR:0,legL:0,legR:0,head:0};toast('Поза сброшена');AU.play('click');e.preventDefault();}
-});
 canvas.addEventListener('wheel',e=>{e.preventDefault();const r=canvas.getBoundingClientRect();zoomAt(Math.exp(-e.deltaY*0.0011),e.clientX-r.left,e.clientY-r.top);},{passive:false});
 
 /* ============ КНОПКИ И РЕЖИМЫ ============ */
