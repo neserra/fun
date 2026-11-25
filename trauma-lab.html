@@ -187,6 +187,11 @@ canvas#world{display:block;width:100%;height:100%;touch-action:none}
     <div class="chip warn" id="scoreChip" style="display:none">★ <b id="scoreText">0</b></div>
     <button class="toolbtn" id="vitalsToggle" title="Показатели">📊 Показатели</button>
     <button class="toolbtn" id="xrayBtn" title="Рентген (X)">🩻 Рентген</button>
+    <button class="toolbtn" id="surgeryBtn" title="Операция: органы подписаны (S)">🩺 Операция</button>
+    <button class="toolbtn" id="goreBtn" title="Переключить количество крови">🩸 Много крови</button>
+    <button class="toolbtn" id="zoomOutBtn" title="Отдалить камеру">🔍−</button>
+    <button class="toolbtn" id="zoomInBtn" title="Приблизить камеру">🔍+</button>
+    <button class="toolbtn" id="zoomResetBtn" title="Сброс вида (C)">⟲</button>
     <button class="toolbtn" id="pauseBtn" title="Пауза (Space)">⏸</button>
     <button class="toolbtn" id="soundBtn" title="Звук">🔊</button>
     <button class="toolbtn" id="saveBtn" title="Сохранить в браузер">💾</button>
@@ -205,7 +210,7 @@ canvas#world{display:block;width:100%;height:100%;touch-action:none}
     <section class="stage" id="stage">
       <canvas id="world"></canvas>
       <div class="scanlines"></div><div class="vignette"></div>
-      <div class="hint" id="hint"><b>ЛКМ</b> — применить выбранное · <b>X</b> — рентген · <b>Space</b> — пауза · <b>Esc</b> — меню. Манекен — цифровая биотест&#8209;платформа, ему ничего не будет. Наверное.</div>
+      <div class="hint" id="hint"><b>ЛКМ</b> — применить · <b>колесо</b> — зум · <b>ПКМ</b> — сдвиг камеры · <b>C</b> — сброс вида · <b>X</b> — рентген · <b>S</b> — операция · <b>Space</b> — пауза · <b>Esc</b> — меню. Манекен — цифровая биотест&#8209;платформа, ему ничего не будет. Наверное.</div>
       <div class="toast" id="toast"></div>
       <div class="crisis-wrap" id="crisisWrap"></div>
       <div class="pauseveil" id="pauseVeil">ПАУЗА</div>
@@ -217,8 +222,9 @@ canvas#world{display:block;width:100%;height:100%;touch-action:none}
           <h1>ТРАВМА<span class="accent">‑ЛАБ</span></h1>
           <p class="sub">Анатомия и физика в одном флаконе. Каждая пуля прослежена от эпидермиса до органа, каждое лекарство — на учёте. Манекен К‑7 «Пациент» выдерживал всякое. Посмотрим, выдержит ли это.</p>
           <div class="menubtns">
-            <button class="mbtn primary" id="playSandbox"><span class="mi">🧪</span><span>ПЕСОЧНИЦА<small>Всё бесконечно, всё можно. 12 стволов и приспособлений, 4 холодных, 11 препаратов, приборы.</small></span></button>
+            <button class="mbtn primary" id="playSandbox"><span class="mi">🧪</span><span>ПЕСОЧНИЦА<small>Всё бесконечно, всё можно. 57 предметов: 17 стволов, 6 холодных, 13 препаратов, хирургия, пропы и силы.</small></span></button>
             <button class="mbtn danger" id="playChallenge"><span class="mi">⏱</span><span>ПРОТОКОЛ «ЖИЗНЬ»<small>4 минуты. Пострадавший на столе, медикаменты на вес золота. Удержи К‑7 в живых.</small></span></button>
+            <button class="mbtn ghost" id="storyLocked" style="opacity:.55;cursor:not-allowed" disabled><span class="mi">🔒</span><span>ИСТОРИЯ: СЕКТОР 7<small>Прототип в разработке — как и в оригинале. Чуть-чуть подождите.</small></span></button>
             <button class="mbtn ghost" id="toggleHowto"><span class="mi">❔</span><span>КАК ИГРАТЬ<small>Управление, журнал, рентген и шпаргалка по препаратам.</small></span></button>
             <button class="mbtn ghost" id="resumeRun" style="display:none"><span class="mi">▶</span><span>ПРОДОЛЖИТЬ<small>Вернуться в текущую сцену — пациент ждёт.</small></span></button>
           </div>
@@ -242,8 +248,19 @@ canvas#world{display:block;width:100%;height:100%;touch-action:none}
               <div><b>🍬 Глюкоза</b> — гипогликемия, спутанность</div>
               <div><b>💊 Антибиотик</b> — инфекция, температура &gt; 39</div>
               <div><b>⚡ Дефибриллятор</b> — клиническая смерть</div>
+              <div><b>🐈 Кетамин</b> — мгновенное отключение боли</div>
+              <div><b>🧯 Налоксон</b> — снять седацию и морфин</div>
               <div><b>🩺 Стетоскоп</b> — послушать, что внутри</div>
             </div>
+            <h4>Камера, рука, операция, силы</h4>
+            <ul>
+              <li><b>Колесо</b> — зум в точку под курсором · <b>ПКМ/средняя + движение</b> — сдвиг · <b>C</b> — сброс вида.</li>
+              <li><b>✋ Рука</b> — тяни руки, ноги и голову. Переломы отвечают болью. Двойной клик — сброс позы.</li>
+              <li><b>🩺 Операция</b> (кнопка или <b>S</b>) — органы видны и подписаны процентами повреждения.</li>
+              <li><b>🩺 Хирургия</b>: коагулятор (внутреннее кровотечение), шовник (все раны), ретрактор (−22% органам зоны).</li>
+              <li><b>⚡ Силы</b>: Нейро-блок (12с без боли), Крио-анабиоз (8с заморозки всего), Магнитный импульс (вышибает застрявшее), Перезагрузка ядра (полный сброс, только песочница). У каждой — перезарядка.</li>
+              <li><b>🎒 Пропы</b>: холодный спрей, горелка, магнит, шина, перекись, верёвка, азотный баллон и пара бесполезных, но милых вещей.</li>
+            </ul>
             <h4>Протокол «Жизнь»</h4>
             <ul>
               <li>К‑7 поступает с огнестрельным ранением живота и внутренним кровотечением.</li>
@@ -328,7 +345,7 @@ const distSeg=(px,py,ax,ay,bx,by)=>{const dx=bx-ax,dy=by-ay,l2=dx*dx+dy*dy;let t
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 /* ============ КАТАЛОГ ПРЕДМЕТОВ ============ */
-const CATS=[['fire','Оружие','🔫'],['melee','Холодное','🔪'],['med','Лекарства','💊'],['tool','Приборы','🧰']];
+const CATS=[['hand','Рука','✋'],['fire','Оружие','🔫'],['melee','Холодное','🔪'],['surgery','Хирургия','🩺'],['med','Лекарства','💊'],['tool','Приборы','🧰'],['prop','Пропы','🎒'],['power','Силы','⚡']];
 const ITEMS=[
  // --- огнестрел / метательное ---
  {id:'pistol', cat:'fire',icon:'🔫',name:'П-9 «Стрела»', desc:'9×19 · универсал',        dmg:34,pen:.55,rate:340, auto:false,pellets:1,spread:1.2,pain:20,bleed:.60,recoil:1.0,snd:'pistol'},
@@ -343,11 +360,18 @@ const ITEMS=[
  {id:'tranq',  cat:'fire',icon:'💤',name:'«Соня» дротикомёт',desc:'сон · урон 0',        dmg:0, pen:.2, rate:800, auto:false,pellets:1,spread:1.3,pain:4, bleed:0,   recoil:.3, snd:'crossbow',tranq:true},
  {id:'taser',  cat:'fire',icon:'🌩',name:'Тазер «Искра»',   desc:'разряд · без ран',      dmg:0, pen:0,  rate:1100,auto:false,pellets:1,spread:2.2,pain:26,bleed:0,   recoil:.1, snd:'taser',taser:true},
  {id:'flare',  cat:'fire',icon:'🎆',name:'«Фейерверк» сигнальный',desc:'ожог · поджог панели',dmg:26,pen:.25,rate:900,auto:false,pellets:1,spread:1.6,pain:30,bleed:.35,recoil:1.1,snd:'shotgun',burn:true},
+ {id:'hmg',     cat:'fire',icon:'🛠️',name:'«Печенег» 7.62',      desc:'пулемёт · очередь и стены дрожат',dmg:24,pen:.80,rate:58, auto:true, pellets:1,spread:3.2,pain:17,bleed:.62,recoil:1.4,snd:'rifle'},
+ {id:'grenade', cat:'fire',icon:'💣',name:'ГП-25 «Вздох»',       desc:'40 мм граната · один раз',   dmg:78,pen:.30,rate:1500,auto:false,pellets:1,spread:1.1,pain:62,bleed:.9,recoil:3.1,snd:'shotgun',fracture:.5},
+ {id:'traumat', cat:'fire',icon:'🩹',name:'«Оса» 9мм Р',         desc:'травматик · резина, не пробивает',dmg:16,pen:.06,rate:420,auto:false,pellets:1,spread:2.4,pain:23,bleed:.14,recoil:.6,snd:'pistol'},
+ {id:'pb',      cat:'fire',icon:'🕳️',name:'ПБ «Вихрь»',          desc:'9×19 · глушитель, почти тихий',dmg:30,pen:.55,rate:330,auto:false,pellets:1,spread:1.3,pain:18,bleed:.58,recoil:.4,snd:'crossbow'},
+ {id:'saiga',   cat:'fire',icon:'🌾',name:'«Сайга-12»',          desc:'полуавтомат · картечь ×6',   dmg:11,pen:.32,rate:390,auto:false,pellets:6,spread:5.2,pain:38,bleed:.8,recoil:1.6,snd:'shotgun'},
  // --- холодное ---
  {id:'scalpel',cat:'melee',icon:'🔪',name:'Скальпель №15', desc:'чистый разрез · малый урон',dmg:10,pen:.15,rate:480,pain:9, bleed:.35,blunt:false,snd:'cut',melee:true},
  {id:'bat',    cat:'melee',icon:'🏏',name:'Бита «Резонанс»',desc:'тупая травма · переломы',  dmg:30,pen:0,  rate:620,pain:34,bleed:.06,blunt:true, fracture:.30,snd:'thud',melee:true},
  {id:'hatchet',cat:'melee',icon:'🪓',name:'Топорик «Хирург»',desc:'рубленая рана',            dmg:64,pen:.35,rate:790,pain:47,bleed:.80,blunt:false,fracture:.18,snd:'cut',melee:true},
  {id:'hammer', cat:'melee',icon:'🔨',name:'Молоток «Нежный»',desc:'тупой удар · швы трещат',  dmg:26,pen:0,  rate:560,pain:30,bleed:.08,blunt:true, fracture:.38,snd:'thud',melee:true},
+ {id:'crowbar',cat:'melee',icon:'🥢',name:'Монтировка «Универсал»',desc:'ломик · вскрытие без спроса',dmg:24,pen:0, rate:540,pain:26,bleed:.1, blunt:true, fracture:.44,snd:'thud',melee:true},
+ {id:'brass',  cat:'melee',icon:'👊',name:'Кастет «Плющ»',    desc:'быстрый и злой',           dmg:14,pen:0,  rate:380,pain:17,bleed:.12,blunt:true, fracture:.15,snd:'thud',melee:true},
  // --- лекарства и расходники ---
  {id:'bandage',  cat:'med',icon:'🩹',name:'Бинт',           desc:'остановить наружное кровотечение зоны',count:3,apply:'bandage'},
  {id:'tourniquet',cat:'med',icon:'🩸',name:'Жгут',          desc:'конечности · полная остановка крови',  count:1,apply:'tourniquet'},
@@ -360,10 +384,33 @@ const ITEMS=[
  {id:'glucose',  cat:'med',icon:'🍬',name:'Глюкоза 40%',    desc:'против гипогликемии',                  count:1,apply:'glucose'},
  {id:'antibiotic',cat:'med',icon:'💊',name:'Антибиотик',    desc:'против инфекции и сепсиса',            count:1,apply:'antibiotic'},
  {id:'defib',    cat:'med',icon:'⚡',name:'Дефибриллятор',  desc:'200 Дж · клиническая смерть',          count:1,apply:'defib'},
+ {id:'ketamine', cat:'med',icon:'🐈',name:'Кетамин 500 мг', desc:'боль = 0 · сознание −25 · 60с',        count:1,apply:'ketamine'},
+ {id:'naloxone', cat:'med',icon:'🧯',name:'Налоксон',       desc:'снять любую седацию и морфин',         count:1,apply:'naloxone'},
  // --- приборы ---
  {id:'forceps',cat:'tool',icon:'🔧',name:'Пинцет',          desc:'извлечь застрявший предмет из зоны',apply:'forceps'},
  {id:'stetho', cat:'tool',icon:'🩺',name:'Стетоскоп',       desc:'прослушать органы · сводка в журнал',apply:'stetho'},
  {id:'xray',   cat:'tool',icon:'🩻',name:'Рентген',         desc:'переключить рентген-режим (X)',     apply:'xray'},
+ // --- рука ---
+ {id:'hand',   cat:'hand',icon:'✋',name:'Рука',            desc:'тянуть конечности и голову · двойной клик — сброс позы',apply:'hand'},
+ // --- хирургия ---
+ {id:'coag',     cat:'surgery',icon:'🔥',name:'Коагулятор «Термик»',desc:'прижигает внутреннее кровотечение · 60с',count:2,apply:'coag'},
+ {id:'suture',   cat:'surgery',icon:'🧵',name:'Шовник «Атлас»',     desc:'зашивает ВСЕ наружные раны разом',   count:1,apply:'suture'},
+ {id:'retractor',cat:'surgery',icon:'🪝',name:'Ретрактор «Аккуратный»',desc:'восстанавливает органы зоны на 22%',count:2,apply:'retractor'},
+ // --- пропы ---
+ {id:'spray',   cat:'prop',icon:'🧊',name:'Спрей «Морозко»',desc:'морозит раны зоны на 25с · −15 боли',apply:'spray'},
+ {id:'torch',   cat:'prop',icon:'🔥',name:'Горелка «Промифей»',desc:'огненное клеймо · ожог без раны', apply:'torch'},
+ {id:'magnet',  cat:'prop',icon:'🧲',name:'Магнит «Коготь»', desc:'выдёргивает гвозди от MP-80',      apply:'magnet'},
+ {id:'splint',  cat:'prop',icon:'🦴',name:'Шина «Стрела»',   desc:'фиксирует переломы зоны · −10 боли',apply:'splint'},
+ {id:'peroxide',cat:'prop',icon:'🧴',name:'Перекись 3%',     desc:'−35% ко всем кровотечениям · 45с', apply:'peroxide'},
+ {id:'rope',    cat:'prop',icon:'🪢',name:'Верёвка «Узелок»',desc:'привязать манекен · он и так никуда',apply:'rope'},
+ {id:'nitrogen',cat:'prop',icon:'🫧',name:'Азот «Хиросима»', desc:'холодная вспышка · уши заложит',   apply:'nitrogen'},
+ {id:'soup',    cat:'prop',icon:'🍲',name:'Куриный суп',     desc:'К-7 не ест. Совсем.',              apply:'soup'},
+ {id:'coffee',  cat:'prop',icon:'☕',name:'Кофе «Живой»',    desc:'+5 бодрости манекену, откуда',     apply:'coffee'},
+ // --- силы ---
+ {id:'neural',cat:'power',icon:'⚡',name:'Нейро-блок',     desc:'12с без единой капли боли',        cd:30,apply:'neural'},
+ {id:'cryo',  cat:'power',icon:'❄️',name:'Крио-анабиоз',   desc:'8с заморозки всей симуляции',      cd:40,apply:'cryo'},
+ {id:'pulse', cat:'power',icon:'🌀',name:'Магнитный импульс',desc:'вышибает всё застрявшее из К-7',  cd:25,apply:'pulse'},
+ {id:'reload',cat:'power',icon:'💾',name:'Перезагрузка ядра', desc:'полный сброс К-7 · только песочница',cd:90,apply:'reload'},
 ];
 const ITEM_BY_ID=Object.fromEntries(ITEMS.map(i=>[i.id,i]));
 const MED_COUNT=Object.fromEntries(ITEMS.filter(i=>i.count).map(i=>[i.id,i.count]));
@@ -385,11 +432,29 @@ function bodyLayout(){
   const armW=Math.max(9,H*0.024), legW=Math.max(11,H*0.031);
   return {cx,headR,headY,shY,chestBot,bellyBot,pelvisBot,legEnd,shHalf,hipHalf,armW,legW};
 }
-function limbSeg(side){const L=bodyLayout();return{ax:L.cx+side*(L.shHalf-2),ay:L.shY+8,bx:L.cx+side*(L.shHalf+W*0.052),by:H*0.462};}
-function legSeg(side){const L=bodyLayout();return{ax:L.cx+side*L.hipHalf*0.55,ay:L.pelvisBot-6,bx:L.cx+side*L.hipHalf*0.66,by:L.legEnd};}
+function rawLimbSeg(side){const L=bodyLayout();return{ax:L.cx+side*(L.shHalf-2),ay:L.shY+8,bx:L.cx+side*(L.shHalf+W*0.052),by:H*0.462};}
+function rawLegSeg(side){const L=bodyLayout();return{ax:L.cx+side*L.hipHalf*0.55,ay:L.pelvisBot-6,bx:L.cx+side*L.hipHalf*0.66,by:L.legEnd};}
+function rotPt(px,py,ox,oy,a){const c=Math.cos(a),s=Math.sin(a);const dx=px-ox,dy=py-oy;return{x:ox+dx*c-dy*s,y:oy+dx*s+dy*c};}
+function normAngle(a){while(a>Math.PI)a-=Math.PI*2;while(a<-Math.PI)a+=Math.PI*2;return a;}
+function limbSeg(side){const s=rawLimbSeg(side);const a=(side<0?S.pose.armL:S.pose.armR)||0;if(!a)return s;const e=rotPt(s.bx,s.by,s.ax,s.ay,a);return{ax:s.ax,ay:s.ay,bx:e.x,by:e.y};}
+function legSeg(side){const s=rawLegSeg(side);const a=(side<0?S.pose.legL:S.pose.legR)||0;if(!a)return s;const e=rotPt(s.bx,s.by,s.ax,s.ay,a);return{ax:s.ax,ay:s.ay,bx:e.x,by:e.y};}
+function headCenter(){const L=bodyLayout();const py=L.shY-2;const dy=L.headY-py;const a=S.pose.head||0;const c=Math.cos(a),s=Math.sin(a);return{x:L.cx-dy*s,y:py+dy*c};}
+// Раны/снаряды/переломы хранятся в «телесных» координатах зоны — поза их не сбрасывает
+function markerInto(o,zone,x,y){
+  if(LIMB_ZONES.has(zone)){const seg=zone.startsWith('arm')?limbSeg(zone==='armL'?-1:1):legSeg(zone==='legL'?-1:1);const dx=seg.bx-seg.ax,dy=seg.by-seg.ay,len2=dx*dx+dy*dy;let t=len2?((x-seg.ax)*dx+(y-seg.ay)*dy)/len2:.5;t=clamp(t,0,1);const nl=Math.hypot(dx,dy)||1;o.segT=t;o.segOff=((x-(seg.ax+dx*t))*-dy+(y-(seg.ay+dy*t))*dx)/nl;return o;}
+  if(zone==='head'){const hc=headCenter();const dx=x-hc.x,dy=y-hc.y;const a=-(S.pose.head||0);const c=Math.cos(a),s=Math.sin(a);o.hx=dx*c-dy*s;o.hy=dx*s+dy*c;return o;}
+  const a2=zoneAnchor(zone);o.rx=x-a2.x;o.ry=y-a2.y;return o;
+}
+function markerPos(o){
+  const zone=o.zone;
+  if(LIMB_ZONES.has(zone)&&o.segT!==undefined){const seg=zone.startsWith('arm')?limbSeg(zone==='armL'?-1:1):legSeg(zone==='legL'?-1:1);const dx=seg.bx-seg.ax,dy=seg.by-seg.ay,nl=Math.hypot(dx,dy)||1;const t=o.segT,off=o.segOff||0;return{x:seg.ax+dx*t+(-dy/nl)*off,y:seg.ay+dy*t+(dx/nl)*off};}
+  if(zone==='head'&&o.hx!==undefined){const hc=headCenter();const a=S.pose.head||0;const c=Math.cos(a),s=Math.sin(a);return{x:hc.x+o.hx*c-o.hy*s,y:hc.y+o.hx*s+o.hy*c};}
+  if(o.rx!==undefined){const a2=zoneAnchor(zone);return{x:a2.x+o.rx,y:a2.y+o.ry};}
+  return{x:o.x||0,y:o.y||0};
+}
 function zoneAt(x,y){
-  const L=bodyLayout();
-  if(Math.hypot(x-L.cx,y-L.headY)<L.headR*1.12) return 'head';
+  const L=bodyLayout();const hc=headCenter();
+  if(Math.hypot(x-hc.x,y-hc.y)<L.headR*1.12) return 'head';
   const tw=t=>lerp(L.shHalf,L.hipHalf,t);
   if(y>=L.shY-6&&y<L.chestBot){const t=(y-L.shY)/(L.chestBot-L.shY);if(Math.abs(x-L.cx)<tw(0.15+t*0.45))return'chest';}
   if(y>=L.chestBot&&y<L.bellyBot){const t=(y-L.chestBot)/(L.bellyBot-L.chestBot);if(Math.abs(x-L.cx)<lerp(L.shHalf*0.95,L.hipHalf*0.98,t))return'belly';}
@@ -408,7 +473,7 @@ const S={
   rhythm:'normal',arrestT:0,deathCause:'',
   wounds:[],splats:[],fractures:[],bandages:[],lodged:[],
   particles:[],casings:[],tracers:[],flashes:[],floats:[],sparks:[],
-  effects:{morphineT:0,epiT:0,atropineT:0,antibioticT:0,tranqT:0},
+  effects:{morphineT:0,epiT:0,atropineT:0,antibioticT:0,tranqT:0,coagT:0,peroxT:0,neuralT:0,cryoT:0},
   iv:{saline:0,blood:0},
   inventory:{},treatZone:{},
   crises:[],crisisPool:[],nextCrisisAt:Infinity,
@@ -416,7 +481,11 @@ const S={
   shake:0,swing:null,fireHeld:false,fireTimer:0,muzzleT:0,
   beatT:0,alarmT:0,ecgPhase:0,ecgData:[],hudT:0,saveT:0,
   rebleedRate:0,
-  xray:false,aim:{x:-999,y:-999},
+  xray:false,surgery:false,aim:{x:-999,y:-999},
+  pose:{armL:0,armR:0,legL:0,legR:0,head:0},
+  poseDrag:null,panning:null,
+  view:{scale:1,ox:0,oy:0},
+  zoneFreeze:{},powerCd:{},gore:true,
 };
 let selected='pistol',activeCat='fire';
 let woundId=1;
@@ -471,10 +540,16 @@ function renderItems(){
   for(const it of ITEMS.filter(i=>i.cat===activeCat)){
     const b=document.createElement('button');b.className='item'+(it.id===selected?' active':'');
     let badge='';
-    if(S.mode==='challenge'&&it.count){const left=S.inventory[it.id]||0;badge='<span class="count'+(left<=0?' zero':'')+'">'+left+'</span>';}
+    if(it.cat==='power'){const left=Math.max(0,(S.powerCd[it.id]||0)-S.time);badge='<span class="count'+(left>0?' zero':'')+'" data-pow="'+it.id+'">'+(left>0?Math.ceil(left)+'с':'∞')+'</span>';}
+    else if(S.mode==='challenge'&&it.count){const left=S.inventory[it.id]||0;badge='<span class="count'+(left<=0?' zero':'')+'">'+left+'</span>';}
     else if(S.mode==='sandbox'&&it.count){badge='<span class="count">∞</span>';}
     b.innerHTML=badge+'<span class="emoji">'+it.icon+'</span><strong>'+esc(it.name)+'</strong><small>'+esc(it.desc)+'</small>';
-    b.addEventListener('click',()=>{selected=it.id;AU.play('click');renderItems();const weapon=(it.cat==='fire'||it.cat==='melee');canvas.style.cursor=weapon?'none':'crosshair';});
+    b.addEventListener('click',()=>{
+      if(it.cat==='power'){const left=(S.powerCd[it.id]||0)-S.time;if(left>0){toast('Перезаряжается: '+Math.ceil(left)+'с');AU.play('bad');return;}}
+      selected=it.id;AU.play('click');renderItems();
+      const weapon=(it.cat==='fire'||it.cat==='melee');
+      canvas.style.cursor=weapon?'none':(it.cat==='hand'?'grab':'crosshair');
+    });
     el.appendChild(b);
   }
 }
@@ -483,7 +558,7 @@ function refillInventory(){S.inventory={};for(const k in MED_COUNT)S.inventory[k
 /* ============ СОХРАНЕНИЕ ============ */
 function saveGame(){
   try{
-    const d={v:1,mode:S.mode,time:S.time,challengeTime:S.challengeTime,vitals:S.vitals,organs:S.organs,rhythm:S.rhythm,arrestT:S.arrestT,wounds:S.wounds,fractures:S.fractures,bandages:S.bandages,lodged:S.lodged,inventory:S.inventory,treatZone:S.treatZone,effects:S.effects,iv:S.iv,score:S.score,resolved:S.resolved,bloodLost:S.bloodLost,rebleedRate:S.rebleedRate};
+    const d={v:1,mode:S.mode,time:S.time,challengeTime:S.challengeTime,vitals:S.vitals,organs:S.organs,rhythm:S.rhythm,arrestT:S.arrestT,wounds:S.wounds,fractures:S.fractures,bandages:S.bandages,lodged:S.lodged,inventory:S.inventory,treatZone:S.treatZone,effects:S.effects,iv:S.iv,score:S.score,resolved:S.resolved,bloodLost:S.bloodLost,rebleedRate:S.rebleedRate,pose:S.pose};
     localStorage.setItem(SAVE_KEY,JSON.stringify(d));toast('💾 Сохранено');
   }catch(e){toast('Не удалось сохранить');}
 }
@@ -496,6 +571,11 @@ function loadGame(){
     Object.assign(S.vitals,d.vitals||{});Object.assign(S.organs,d.organs||{});
     S.rhythm=d.rhythm||'normal';S.arrestT=d.arrestT||0;
     S.wounds=d.wounds||[];S.fractures=d.fractures||[];S.bandages=d.bandages||[];S.lodged=d.lodged||[];
+    // старые сохранения: раны хранились абсолютными x,y → переводим в телесные маркеры
+    for(const w of S.wounds)if(w.x!==undefined&&w.rx===undefined&&w.segT===undefined&&w.hx===undefined)markerInto(w,w.zone,w.x,w.y);
+    for(const f of S.fractures)if(f.x!==undefined&&f.rx===undefined&&f.segT===undefined&&f.hx===undefined)markerInto(f,f.zone||'chest',f.x,f.y);
+    for(const l of S.lodged)if(l.x!==undefined&&l.rx===undefined&&l.segT===undefined&&l.hx===undefined)markerInto(l,l.zone,l.x,l.y);
+    if(d.pose)S.pose=Object.assign({armL:0,armR:0,legL:0,legR:0,head:0},d.pose);
     S.inventory=d.inventory||{};S.treatZone=d.treatZone||{};Object.assign(S.effects,d.effects||{});Object.assign(S.iv,d.iv||{});
     S.score=d.score||0;S.resolved=d.resolved||0;S.bloodLost=d.bloodLost||0;S.rebleedRate=d.rebleedRate||0;
     S.wounds.forEach(w=>{if(w.id>=woundId)woundId=w.id+1;});
@@ -509,7 +589,8 @@ function setBest(v){try{localStorage.setItem(BEST_KEY,String(v));}catch(e){}}
 function resetField(){
   S.time=0;S.vitals=defaultVitals();S.organs=defaultOrgans();S.rhythm='normal';S.arrestT=0;S.deathCause='';
   S.wounds=[];S.splats=[];S.fractures=[];S.bandages=[];S.lodged=[];S.particles=[];S.casings=[];S.tracers=[];S.flashes=[];S.floats=[];S.sparks=[];
-  S.effects={morphineT:0,epiT:0,atropineT:0,antibioticT:0,tranqT:0};S.iv={saline:0,blood:0};
+  S.effects={morphineT:0,epiT:0,atropineT:0,antibioticT:0,tranqT:0,coagT:0,peroxT:0,neuralT:0,cryoT:0};S.iv={saline:0,blood:0};
+  S.pose={armL:0,armR:0,legL:0,legR:0,head:0};S.poseDrag=null;S.panning=null;S.view={scale:1,ox:0,oy:0};S.zoneFreeze={};S.powerCd={};
   S.crises=[];S.crisisPool=[];S.nextCrisisAt=Infinity;S.score=0;S.resolved=0;S.bloodLost=0;S.rebleedRate=0;
   S.shake=0;S.swing=null;S.fireHeld=false;S.over=false;S.paused=false;S.xray=false;
   $('#woundLog').innerHTML='';
@@ -521,20 +602,25 @@ function updateModeHUD(){
   $('#modeChip').innerHTML=ch?'⏱ Протокол «Жизнь»':'🧪 Песочница';
   $('#reviveBtn').textContent=ch?'🏳️ ЗАВЕРШИТЬ ПРОТОКОЛ (сдать)':'🚑 ОЖИВИТЬ МАНЕКЕН (сброс)';
   $('#xrayBtn').classList.toggle('active',S.xray);
+  $('#surgeryBtn').classList.toggle('active',S.surgery);
+  $('#goreBtn').textContent=S.gore?'🩸 Много крови':'🩸 Мало крови';
 }
+function toggleSurgery(){S.surgery=!S.surgery;$('#surgeryBtn').classList.toggle('active',S.surgery);AU.play('click');toast(S.surgery?'🩺 Операция ВКЛ · органы подписаны':'Операционный стол закрыт');}
+function toggleGore(){S.gore=!S.gore;try{localStorage.setItem('traumalab_gore',S.gore?'1':'0');}catch(e){}$('#goreBtn').textContent=S.gore?'🩸 Много крови':'🩸 Мало крови';AU.play('click');toast(S.gore?'🩸 Режим крови: БЕШЕНЫЙ':'🩸 Режим крови: спокойный');}
 
 /* ============ УРОН И БОЙ ============ */
-function gainPain(v){S.vitals.pain=clamp(S.vitals.pain+v*(S.effects.morphineT>0?0.55:1),0,100);}
+function gainPain(v){if(S.effects.neuralT>0)return;S.vitals.pain=clamp(S.vitals.pain+v*(S.effects.morphineT>0?0.55:1),0,100);}
 function loseBlood(v){S.vitals.blood=clamp(S.vitals.blood-v,0,6500);S.bloodLost+=v;}
 
 function spawnBlood(x,y,n,spread){
+  const cols=S.gore?['#a01b30','#c62b3f','#7d1226']:['#79828f','#98a1ae','#565e69'];
   for(let i=0;i<n;i++){const a=rand(0,Math.PI*2),sp=rand(40,spread||190);
-    S.particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-60,t:rand(.5,1.1),size:rand(1.6,4.6),col:['#a01b30','#c62b3f','#7d1226'][Math.floor(rand(0,3))]});}
+    S.particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-60,t:rand(.5,1.1),size:rand(1.6,4.6),col:cols[Math.floor(rand(0,3))]});}
 }
 function spawnSparks(x,y,n,color){for(let i=0;i<n;i++){const a=rand(0,Math.PI*2),sp=rand(50,240);S.sparks.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-40,t:rand(.3,.7),col:color||'#ffd76a'});}}
-function addSplat(x,y,size){S.splats.push({x,y,size:size||rand(4,14),alpha:rand(.35,.65),seed:Array.from({length:9},()=>rand(.55,1.25))});if(S.splats.length>70)S.splats.shift();}
-function addFracture(x,y){S.fractures.push({x,y,a:rand(0,Math.PI),len:rand(7,17)});if(S.fractures.length>28)S.fractures.shift();}
-function addLodged(x,y,itemId,zone){const lod={id:woundId++,x,y,item:itemId,zone};S.lodged.push(lod);if(S.lodged.length>12)S.lodged.shift();return lod.id;}
+function addSplat(x,y,size){if(!S.gore)return;S.splats.push({x,y,size:size||rand(4,14),alpha:rand(.35,.65),seed:Array.from({length:9},()=>rand(.55,1.25))});if(S.splats.length>70)S.splats.shift();}
+function addFracture(zone,x,y){const f={zone,a:rand(0,Math.PI),len:rand(7,17)};markerInto(f,zone,x,y);S.fractures.push(f);if(S.fractures.length>28)S.fractures.shift();}
+function addLodged(x,y,itemId,zone){const lod={id:woundId++,item:itemId,zone};markerInto(lod,zone,x,y);S.lodged.push(lod);if(S.lodged.length>12)S.lodged.shift();return lod.id;}
 
 function damageOrgan(name,amount){
   const before=S.organs[name];const after=clamp(before+amount,0,100);S.organs[name]=after;
@@ -564,14 +650,15 @@ function applyBullet(item,zone,tx,ty){
   const pen=item.pen||0;
   const stopped=pen<0.9&&Math.random()<boneChance*Math.max(0,1.05-pen*0.85);
   let dmg=item.dmg*(pen*0.65+0.35);
-  if(stopped){dmg*=0.32;addFracture(tx,ty);}
+  if(stopped){dmg*=0.32;addFracture(zone,tx,ty);}
   if(zone==='head')damageOrgan('brain',dmg*1.22);
   else if(zone==='chest')chestHit(tx,ty,dmg);
   else if(zone==='belly')bellyHit(tx,ty,dmg);
-  else if(zone==='pelvis'){if(Math.random()<0.6)damageOrgan('bowel',dmg*0.32);if(Math.random()<0.5)addFracture(tx,ty);}
-  else if(LIMB_ZONES.has(zone)){if(Math.random()<(item.fracture||0.28))addFracture(tx,ty);}
+  else if(zone==='pelvis'){if(Math.random()<0.6)damageOrgan('bowel',dmg*0.32);if(Math.random()<0.5)addFracture('pelvis',tx,ty);}
+  else if(LIMB_ZONES.has(zone)){if(Math.random()<(item.fracture||0.28))addFracture(zone,tx,ty);}
   const bleedRate=item.dmg>0?dmg*item.bleed*0.30*(stopped?0.55:1):0;
-  const w={t:S.time,zone,name:item.name,dmg:Math.round(dmg),bleed:bleedRate,baseBleed:bleedRate,treated:false,x:tx,y:ty,lodgedId:null};
+  const w={t:S.time,zone,name:item.name,dmg:Math.round(dmg),bleed:bleedRate,baseBleed:bleedRate,treated:false,lodgedId:null};
+  markerInto(w,zone,tx,ty);
   if(stopped||item.lodge){w.lodgedId=addLodged(tx,ty,item.id,zone);}
   if(item.dmg>0)addWound(w);
   if(item.dmg>0)loseBlood(item.dmg*0.5);
@@ -619,12 +706,14 @@ function applyMelee(swing){
   if(zone==='head')damageOrgan('brain',dmg*(item.blunt?0.55:(item.id==='scalpel'?0.12:0.8)));
   else if(zone==='chest'){if(item.blunt){damageOrgan('heart',dmg*0.2);damageOrgan(Math.random()<.5?'lungL':'lungR',dmg*0.14);}else{chestHit(x,y,dmg*0.7);}}
   else if(zone==='belly'){if(item.blunt){damageOrgan('stomach',dmg*0.3);}else{bellyHit(x,y,dmg*0.7);}}
-  else if(zone==='pelvis'){damageOrgan('bowel',dmg*0.28);if(Math.random()<.4)addFracture(x,y);}
+  else if(zone==='pelvis'){damageOrgan('bowel',dmg*0.28);if(Math.random()<.4)addFracture('pelvis',x,y);}
   const bleedRate=item.dmg>0?dmg*item.bleed*0.30:0;
-  addWound({t:S.time,zone,name:item.name,dmg:Math.round(dmg),bleed:bleedRate,baseBleed:bleedRate,treated:false,x,y,lodgedId:null});
+  const mw={t:S.time,zone,name:item.name,dmg:Math.round(dmg),bleed:bleedRate,baseBleed:bleedRate,treated:false,lodgedId:null};
+  markerInto(mw,zone,x,y);
+  addWound(mw);
   if(bleedRate>0.6)spawnBlood(x,y,10,170);else spawnSparks(x,y,5,'#ffe9c9');
   addSplat(x,y,bleedRate>0.6?rand(5,12):2);
-  if(Math.random()<(item.fracture||0.15))addFracture(x,y);
+  if(Math.random()<(item.fracture||0.15))addFracture(zone,x,y);
   loseBlood(item.blunt?dmg*0.12:dmg*0.4);
   gainPain(item.pain*rand(.9,1.3));
   S.vitals.consciousness=clamp(S.vitals.consciousness-item.pain*0.11,0,100);
@@ -702,6 +791,106 @@ function useMed(item,x,y){
       else{S.vitals.bpSys=clamp(S.vitals.bpSys+10,0,175);S.vitals.hr=clamp(S.vitals.hr+8,0,175);addFloat(x,y,'Ритм есть','#ffc861');log('Дефибриллятор: ритм уже есть, разряд не нужен','warn');AU.play('med');}
       resolveCrisis('arrest');return;
     }
+    case 'ketamine': if(!takeMed(item))return; S.vitals.pain=0;S.vitals.consciousness=clamp(S.vitals.consciousness-25,0,100);S.effects.neuralT=Math.max(S.effects.neuralT,60);AU.play('med');addFloat(x,y,'боль = 0','#c9b3ff');log('Кетамин 500 мг в/в · боли нет вообще','good');return;
+    case 'naloxone': if(!takeMed(item))return; S.effects.tranqT=0;S.effects.morphineT=0;S.effects.neuralT=0;AU.play('med');log('Налоксон в/в · седация снята','good');addFloat(x,y,'протрезвел','#ffe9c9');return;
+    // --- хирургия ---
+    case 'coag': if(!takeMed(item))return; S.effects.coagT=60;AU.play('med');log('Коагуляция: внутреннее кровотечение остановлено на 60с','good');addFloat(x,y,'прижжено','#ffb04d');return;
+    case 'suture': {
+      const targets=S.wounds.filter(w=>!w.treated);
+      if(!targets.length){toast('Шить нечего — все раны чистые');AU.play('click');return;}
+      if(!takeMed(item))return;
+      for(const w of targets){w.treated=true;w.bleed=0;}
+      for(const z of [...new Set(targets.map(w=>w.zone))]){S.treatZone[z]='suture';S.bandages.push({zone:z,kind:'bandage',t:S.time});}
+      AU.play('cut');log('Наложены швы: ран закрыто — '+targets.length,'good');addFloat(x,y,'зашито: '+targets.length,'#8df5d8');
+      return;
+    }
+    case 'retractor': {
+      if(!zone){toast('Ткни в район органа');return;}
+      const map={chest:['heart','lungL','lungR'],belly:['liver','stomach','bowel'],head:['brain'],pelvis:['bowel']};
+      const list=map[zone];
+      if(!list){toast('Здесь только кость и мясо — органов нет');AU.play('click');return;}
+      if(!takeMed(item))return;
+      for(const k of list)S.organs[k]=clamp(S.organs[k]-22,0,100);
+      AU.play('med');AU.play('band');
+      log('Ретракция и ревизия: '+list.map(k=>ORGAN_NAME[k]).join(', ')+' −22%','good');addFloat(x,y,'−22% органов','#8df5d8');
+      return;
+    }
+    // --- пропы ---
+    case 'spray': {
+      if(!zone){toast('Ткни в зону, которую морозим');return;}
+      S.zoneFreeze[zone]=25;S.vitals.pain=clamp(S.vitals.pain-15,0,100);S.vitals.consciousness=clamp(S.vitals.consciousness-2,0,100);
+      spawnSparks(x,y,10,'#a8e6ff');AU.play('stun');
+      log('Спрей «Морозко»: '+(ZONE_NAME[zone]||zone)+' — раны заморожены на 25с','good');
+      return;
+    }
+    case 'torch': {
+      if(!zone){toast('Ткни в манекен — иначе подожжёшь стол');return;}
+      loseBlood(8);gainPain(18);spawnSparks(x,y,20,'#ff9a3d');addSplat(x+rand(-10,10),y+rand(-8,8),4);
+      S.vitals.consciousness=clamp(S.vitals.consciousness-3,0,100);
+      AU.play('burn');log('Огненное клеймо → '+(ZONE_NAME[zone]||zone),'warn');addFloat(x,y-14,'ожог!','#ffb04d');
+      return;
+    }
+    case 'magnet': {
+      const nails=S.lodged.filter(l=>l.item==='nailgun');
+      S.lodged=S.lodged.filter(l=>l.item!=='nailgun');
+      AU.play('thud');
+      if(nails.length){log('Магнит «Коготь» вытянул гвоздей: '+nails.length,'good');toast('🧲 Гвоздей вытянуто: '+nails.length);}
+      else toast('🧲 Гвоздей не найдено. Только ферромагнетик.');
+      return;
+    }
+    case 'splint': {
+      if(!zone){toast('Укажи зону перелома');return;}
+      const before=S.fractures.length;
+      S.fractures=S.fractures.filter(fr=>fr.zone!==zone);
+      const fixed=before-S.fractures.length;
+      S.vitals.pain=clamp(S.vitals.pain-10,0,100);
+      if(fixed>0){AU.play('band');log('Шина на '+(ZONE_NAME[zone]||zone)+': переломов зафиксировано — '+fixed,'good');addFloat(x,y,'шина ✓','#8df5d8');}
+      else{toast('Здесь переломов нет');AU.play('click');}
+      return;
+    }
+    case 'peroxide': S.effects.peroxT=45;AU.play('med');log('Перекись 3% в раны · кровотечения −35% на 45с','good');addFloat(x,y,'перекись','#a8e6ff');return;
+    case 'rope': toast('🪢 Манекен привязан. Он и так никуда.');log('Манекен привязан к столу. К-7 одобряет.','good');AU.play('band');return;
+    case 'nitrogen': {
+      S.shake=Math.max(S.shake,5);S.flashes.push({t:.22,big:true});
+      spawnSparks(x,y,26,'#a8e6ff');gainPain(38);
+      if(zone){
+        if(zone==='head')damageOrgan('brain',8);
+        if(Math.random()<0.5)addFracture(zone,x,y);
+        const lw={t:S.time,zone,name:'Азот «Хиросима»',dmg:40,bleed:2.2,baseBleed:2.2,treated:false,lodgedId:null};
+        markerInto(lw,zone,x,y);
+        addWound(lw);
+      }
+      loseBlood(15);AU.play('burn');log('Азотный баллон: вспышка минус уши','warn');addFloat(x,y-16,'БУМ-холод','#a8e6ff');
+      return;
+    }
+    case 'soup': toast('🍲 К-7 не ест. Он даже не моргает, если не попросить.');log('Предложен суп. К-7 отказался (у него нет рта для этого).','good');AU.play('click');return;
+    case 'coffee': toast('☕ +5 бодрости манекену. От некоторых и этого много.');S.vitals.hr=clamp(S.vitals.hr+3,0,175);log('Кофе «Живой»: пульс бодро подрагивает','good');AU.play('click');return;
+    // --- силы ---
+    case 'neural': {
+      const cd=(S.powerCd.neural||0)-S.time;if(cd>0){toast('Нейро-блок перезаряжается: '+Math.ceil(cd)+'с');AU.play('bad');return;}
+      S.effects.neuralT=12;S.powerCd.neural=S.time+item.cd;AU.play('stun');
+      log('НЕЙРО-БЛОК: 12 секунд абсолютной тишины в боли','good');addFloat(x,y,'нейро-блок','#ffe86a');return;
+    }
+    case 'cryo': {
+      const cd=(S.powerCd.cryo||0)-S.time;if(cd>0){toast('Крио-поле перезаряжается: '+Math.ceil(cd)+'с');AU.play('bad');return;}
+      S.effects.cryoT=8;S.powerCd.cryo=S.time+item.cd;AU.play('stun');
+      log('КРИО-АНАБИОЗ: вся симуляция на паузе, 8 секунд','good');toast('❄️ МИР ЗАМЁРЗ');return;
+    }
+    case 'pulse': {
+      const cd=(S.powerCd.pulse||0)-S.time;if(cd>0){toast('Импульс перезаряжается: '+Math.ceil(cd)+'с');AU.play('bad');return;}
+      const n=S.lodged.length;
+      for(const lod of S.lodged){const p=markerPos(lod);spawnSparks(p.x,p.y,4,'#ffd34d');}
+      S.lodged.length=0;S.powerCd.pulse=S.time+item.cd;S.shake=Math.max(S.shake,3);AU.play('stun');
+      gainPain(2*n);
+      log('МАГНИТНЫЙ ИМПУЛЬС: вышибло застрявших предметов — '+n,'good');toast(n?'🌀 Выбыло: '+n:'🌀 Внутри ничего не застряло');return;
+    }
+    case 'reload': {
+      if(S.mode==='challenge'){toast('Ядро не перезагружают во время протокола!');AU.play('bad');return;}
+      const cd=(S.powerCd.reload||0)-S.time;if(cd>0){toast('Ядро перезаряжается: '+Math.ceil(cd)+'с');AU.play('bad');return;}
+      S.powerCd.reload=S.time+item.cd;
+      resetField();S.running=true;S.mode='sandbox';updateModeHUD();renderItems();AU.play('good');
+      log('ЯДРО ПЕРЕЗАГРУЖЕНО: К-7 с конвейера, как новый','good');toast('💾 К-7 перезагружен');return;
+    }
     case 'forceps':{
       if(!zone){toast('Укажи зону, где застряло');return;}
       const i=S.lodged.findIndex(l=>l.zone===zone);
@@ -709,7 +898,8 @@ function useMed(item,x,y){
       const lod=S.lodged.splice(i,1)[0];
       loseBlood(25);gainPain(4);AU.play('cut');
       const wname=(ITEM_BY_ID[lod.item]&&ITEM_BY_ID[lod.item].name)||'снаряд';
-      log('Извлечён инородный предмет: '+wname,'good');addFloat(lod.x,lod.y,'+чисто','#8df5d8');
+      const lp=markerPos(lod);
+      log('Извлечён инородный предмет: '+wname,'good');addFloat(lp.x,lp.y,'+чисто','#8df5d8');
       return;
     }
     case 'stetho':{
@@ -816,8 +1006,11 @@ function vitalsTick(dt){
   const V=S.vitals;
   if(S.iv.saline>0){const d=Math.min(S.iv.saline,95*dt);S.iv.saline-=d;V.blood=clamp(V.blood+d*0.85,0,6500);}
   if(S.iv.blood>0){const d=Math.min(S.iv.blood,170*dt);S.iv.blood-=d;V.blood=clamp(V.blood+d,0,6500);}
-  let bleed=S.rebleedRate;for(const w of S.wounds)if(w.bleed>0&&!w.treated)bleed+=w.bleed;
-  bleed+=S.organs.liver*0.045+S.organs.stomach*0.016+S.organs.bowel*0.008;
+  const perox=S.effects.peroxT>0?0.65:1;
+  let bleed=S.rebleedRate;
+  for(const w of S.wounds)if(w.bleed>0&&!w.treated&&!(S.zoneFreeze[w.zone]>0))bleed+=w.bleed;
+  bleed*=perox;
+  if(S.effects.coagT<=0)bleed+=S.organs.liver*0.045+S.organs.stomach*0.016+S.organs.bowel*0.008;
   if(bleed>0){const lost=bleed*dt;V.blood=clamp(V.blood-lost,0,6500);S.bloodLost+=lost;}
   const lost5000=Math.max(0,5000-V.blood);
   const epi=S.effects.epiT>0;
@@ -844,6 +1037,8 @@ function vitalsTick(dt){
   V.temp+=(tempT-V.temp)*Math.min(1,dt*0.25);
   V.glucose+=(((hypo)?2.6:5.6)-V.glucose)*Math.min(1,dt*0.5);
   V.pain=clamp(V.pain-(S.effects.morphineT>0?0.15:0.32)*dt,0,100);
+  if(S.effects.neuralT>0)V.pain=clamp(V.pain-6*dt,0,100);
+  for(const z in S.zoneFreeze){S.zoneFreeze[z]-=dt;if(S.zoneFreeze[z]<=0)delete S.zoneFreeze[z];}
   for(const k in S.effects)if(S.effects[k]>0)S.effects[k]=Math.max(0,S.effects[k]-dt);
   if(S.rhythm!=='arrest'){S.beatT+=dt;const iv=60/Math.max(30,V.hr);if(S.beatT>=iv){S.beatT=0;AU.play('heart');}}
   const critical=S.rhythm==='arrest'||V.bpSys<70||V.spo2<60;
@@ -870,7 +1065,7 @@ function capsule(x1,y1,x2,y2,w,color){ctx.strokeStyle=color;ctx.lineWidth=w;ctx.
 function zoneAnchor(zone){
   const L=bodyLayout();
   switch(zone){
-    case 'head':return{x:L.cx,y:L.headY};
+    case 'head':return headCenter();
     case 'chest':return{x:L.cx,y:lerp(L.shY,L.chestBot,.45)};
     case 'belly':return{x:L.cx,y:(L.chestBot+L.bellyBot)/2};
     case 'pelvis':return{x:L.cx,y:(L.bellyBot+L.pelvisBot)/2};
@@ -909,6 +1104,7 @@ function drawLabBack(){
   }
 }
 function drawPool(){
+  if(!S.gore)return;
   const L=bodyLayout();
   const rp=clamp(S.bloodLost/16,0,Math.min(W*0.17,130));
   if(rp<4)return;
@@ -923,7 +1119,7 @@ function drawBody(){
   const L=bodyLayout();const f=skinF();
   const skin=mixHex('#d3a57f','#828793',f),skinD=mixHex('#a97e56','#5f636d',f),seam=mixHex('#7d5a3e','#3f434c',f),boot=mixHex('#3a4356','#2c3038',f);
   const breathe=S.rhythm==='arrest'?1:1+Math.sin(S.time*1.6)*0.022;
-  if(S.xray){drawBodyXray(L);return;}
+  if(S.xray||S.surgery){drawBodyXray(L);return;}
   // ноги
   for(const side of [-1,1]){
     const s=legSeg(side);
@@ -968,22 +1164,25 @@ function drawBody(){
   // плечевые кольца
   for(const side of [-1,1]){ctx.beginPath();ctx.arc(L.cx+side*(L.shHalf-2),L.shY+8,L.armW*1.05,0,Math.PI*2);ctx.strokeStyle=seam;ctx.lineWidth=3;ctx.stroke();}
   ctx.restore();
-  // шея и голова
-  ctx.fillStyle=skinD;roundRectPath(L.cx-L.headR*0.32,L.headY+L.headR*0.55,L.headR*0.64,L.shY-(L.headY+L.headR*0.4)+8,6);ctx.fill();
-  ctx.beginPath();ctx.arc(L.cx,L.headY,L.headR,0,Math.PI*2);
-  const hg=ctx.createRadialGradient(L.cx-L.headR*0.3,L.headY-L.headR*0.3,L.headR*0.2,L.cx,L.headY,L.headR);
+  // шея и голова (голову можно наклонять рукой)
+  const hc=headCenter();
+  capsule(L.cx,L.shY-2,hc.x,hc.y+L.headR*0.35,L.headR*0.6,skinD);
+  ctx.save();ctx.translate(hc.x,hc.y);ctx.rotate(S.pose.head||0);ctx.translate(-hc.x,-hc.y);
+  ctx.beginPath();ctx.arc(hc.x,hc.y,L.headR,0,Math.PI*2);
+  const hg=ctx.createRadialGradient(hc.x-L.headR*0.3,hc.y-L.headR*0.3,L.headR*0.2,hc.x,hc.y,L.headR);
   hg.addColorStop(0,mixHex('#e2b98d','#9297a3',f));hg.addColorStop(1,skin);
   ctx.fillStyle=hg;ctx.fill();ctx.strokeStyle=seam;ctx.lineWidth=2.4;ctx.stroke();
   // уши
-  for(const side of [-1,1]){ctx.beginPath();ctx.arc(L.cx+side*L.headR*0.98,L.headY+2,L.headR*0.14,0,Math.PI*2);ctx.fillStyle=skinD;ctx.fill();}
+  for(const side of [-1,1]){ctx.beginPath();ctx.arc(hc.x+side*L.headR*0.98,hc.y+2,L.headR*0.14,0,Math.PI*2);ctx.fillStyle=skinD;ctx.fill();}
   // шов на голове (панель андроида)
   ctx.strokeStyle=seam;ctx.setLineDash([5,4]);ctx.lineWidth=1.4;
-  ctx.beginPath();ctx.arc(L.cx,L.headY,L.headR*0.82,Math.PI*1.15,Math.PI*1.85);ctx.stroke();ctx.setLineDash([]);
+  ctx.beginPath();ctx.arc(hc.x,hc.y,L.headR*0.82,Math.PI*1.15,Math.PI*1.85);ctx.stroke();ctx.setLineDash([]);
   // датчик на лбу
   const blink=0.5+0.5*Math.sin(S.time*2.4);
   ctx.save();ctx.globalAlpha=S.rhythm==='arrest'?0.15:0.4+0.6*blink;ctx.fillStyle='#ff5b6e';ctx.shadowColor='#ff5b6e';ctx.shadowBlur=8;
-  ctx.beginPath();ctx.arc(L.cx+L.headR*0.42,L.headY-L.headR*0.5,3.4,0,Math.PI*2);ctx.fill();ctx.restore();
-  drawFace(L,f);
+  ctx.beginPath();ctx.arc(hc.x+L.headR*0.42,hc.y-L.headR*0.5,3.4,0,Math.PI*2);ctx.fill();ctx.restore();
+  drawFace({cx:hc.x,headY:hc.y,headR:L.headR,shY:L.shY,chestBot:L.chestBot,bellyBot:L.bellyBot,pelvisBot:L.pelvisBot,legEnd:L.legEnd,shHalf:L.shHalf,hipHalf:L.hipHalf,armW:L.armW,legW:L.legW},f);
+  ctx.restore();
 }
 function drawFace(L,f){
   const hy=L.headY,r=L.headR,arrest=S.rhythm==='arrest';
@@ -1017,17 +1216,18 @@ function drawFace(L,f){
 }
 function roundRectPath(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
 function drawBodyXray(L){
+  const hc=headCenter();
   ctx.save();
   ctx.globalAlpha=.16;ctx.fillStyle='#63d8ff';
-  ctx.beginPath();ctx.arc(L.cx,L.headY,L.headR,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.arc(hc.x,hc.y,L.headR,0,Math.PI*2);ctx.fill();
   capsule(L.cx,L.shY,L.cx,L.pelvisBot,L.shHalf*1.7,'#63d8ff');
   ctx.restore();
   ctx.save();
   ctx.strokeStyle='#dff3ff';ctx.shadowColor='#bfeaff';ctx.shadowBlur=6;ctx.lineWidth=3;ctx.lineCap='round';
   ctx.globalAlpha=.92;
   // череп
-  ctx.beginPath();ctx.arc(L.cx,L.headY,L.headR*0.82,0,Math.PI*2);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(L.cx-L.headR*0.4,L.headY+L.headR*0.62);ctx.lineTo(L.cx+L.headR*0.4,L.headY+L.headR*0.62);ctx.stroke();
+  ctx.beginPath();ctx.arc(hc.x,hc.y,L.headR*0.82,0,Math.PI*2);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(hc.x-L.headR*0.4,hc.y+L.headR*0.62);ctx.lineTo(hc.x+L.headR*0.4,hc.y+L.headR*0.62);ctx.stroke();
   // позвоночник
   for(let i=0;i<9;i++){const y=lerp(L.shY+4,L.pelvisBot-10,i/8);roundRectPath(L.cx-6,y,12,7,3);ctx.stroke();}
   // рёбра
@@ -1058,20 +1258,59 @@ function drawBodyXray(L){
   organ('heart','#ff5d78');organ('lungL','#7fd0ff');organ('lungR','#7fd0ff');organ('liver','#c98aff');organ('stomach','#ffd166');organ('bowel','#9dffb0');organ('brain','#ff9de2');
   // переломы
   ctx.save();ctx.strokeStyle='#ffffff';ctx.lineWidth=2.4;ctx.shadowColor='#fff';ctx.shadowBlur=5;
-  for(const fr of S.fractures){ctx.beginPath();ctx.moveTo(fr.x-Math.cos(fr.a)*fr.len,fr.y-Math.sin(fr.a)*fr.len);ctx.lineTo(fr.x+Math.cos(fr.a)*fr.len,fr.y+Math.sin(fr.a)*fr.len);ctx.moveTo(fr.x-Math.sin(fr.a)*fr.len*0.5,fr.y+Math.cos(fr.a)*fr.len*0.5);ctx.lineTo(fr.x+Math.sin(fr.a)*fr.len*0.5,fr.y-Math.cos(fr.a)*fr.len*0.5);ctx.stroke();}
+  for(const fr of S.fractures){const fp=markerPos(fr);ctx.beginPath();ctx.moveTo(fp.x-Math.cos(fr.a)*fr.len,fp.y-Math.sin(fr.a)*fr.len);ctx.lineTo(fp.x+Math.cos(fr.a)*fr.len,fp.y+Math.sin(fr.a)*fr.len);ctx.moveTo(fp.x-Math.sin(fr.a)*fr.len*0.5,fp.y+Math.cos(fr.a)*fr.len*0.5);ctx.lineTo(fp.x+Math.sin(fr.a)*fr.len*0.5,fp.y-Math.cos(fr.a)*fr.len*0.5);ctx.stroke();}
   ctx.restore();
   // застрявшие снаряды
-  for(const lod of S.lodged){ctx.save();ctx.fillStyle='#ffd34d';ctx.shadowColor='#ffd34d';ctx.shadowBlur=9;ctx.beginPath();ctx.arc(lod.x,lod.y,3.6,0,Math.PI*2);ctx.fill();ctx.restore();}
+  for(const lod of S.lodged){const lp=markerPos(lod);ctx.save();ctx.fillStyle='#ffd34d';ctx.shadowColor='#ffd34d';ctx.shadowBlur=9;ctx.beginPath();ctx.arc(lp.x,lp.y,3.6,0,Math.PI*2);ctx.fill();ctx.restore();}
+  if(S.surgery)drawSurgeryLabels(L,hc);
+}
+function drawSurgeryLabels(L,hc){
+  const rows=[
+    {k:'brain',side:-1,y:0.22,label:'Мозг'},
+    {k:'lungL',side:-1,y:0.34,label:'Лёгкое лев.'},
+    {k:'liver',side:-1,y:0.45,label:'Печень'},
+    {k:'bowel',side:-1,y:0.56,label:'Кишечник'},
+    {k:'heart',side:1,y:0.29,label:'Сердце'},
+    {k:'lungR',side:1,y:0.40,label:'Лёгкое прав.'},
+    {k:'stomach',side:1,y:0.50,label:'Желудок'},
+  ];
+  const organPos=k=>{
+    switch(k){
+      case 'brain':return{x:hc.x,y:hc.y-L.headR*0.15};
+      case 'heart':return{x:L.cx-8,y:lerp(L.shY,L.chestBot,.72)};
+      case 'lungL':return{x:L.cx-L.shHalf*0.42,y:lerp(L.shY,L.chestBot,.38)};
+      case 'lungR':return{x:L.cx+L.shHalf*0.42,y:lerp(L.shY,L.chestBot,.38)};
+      case 'liver':return{x:L.cx-L.shHalf*0.35,y:lerp(L.chestBot,L.bellyBot,.28)};
+      case 'stomach':return{x:L.cx+L.shHalf*0.32,y:lerp(L.chestBot,L.bellyBot,.32)};
+      case 'bowel':return{x:L.cx,y:lerp(L.chestBot,L.bellyBot,.72)};
+    }
+  };
+  ctx.save();ctx.font='700 10px system-ui';ctx.lineWidth=1.2;
+  for(const r of rows){
+    const p=organPos(r.k);const v=Math.round(S.organs[r.k]);
+    const lx=r.side<0?10:W-10, ly=H*r.y;
+    ctx.strokeStyle='rgba(150,220,255,0.5)';
+    ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(r.side<0?lx+86:lx-86,ly);ctx.stroke();
+    ctx.fillStyle='rgba(8,16,28,0.82)';
+    const tw=86;
+    ctx.fillRect(r.side<0?lx:lx-tw,ly-9,tw,15);
+    ctx.strokeStyle='rgba(120,190,235,0.35)';ctx.strokeRect(r.side<0?lx:lx-tw,ly-9,tw,15);
+    ctx.fillStyle=v<25?'#8df5d8':v<55?'#ffc861':v<80?'#ff9a3d':'#ff5d78';
+    ctx.textAlign='left';
+    ctx.fillText(r.label+' · '+v+'%',(r.side<0?lx:lx-tw)+4,ly+2);
+  }
+  ctx.restore();
 }
 function drawWounds(){
   for(const w of S.wounds){
     if(w.treated)continue;
-    ctx.save();ctx.translate(w.x,w.y);
+    const p=markerPos(w);
+    ctx.save();ctx.translate(p.x,p.y);
     ctx.fillStyle='#3d0410';ctx.beginPath();ctx.ellipse(0,0,3.6,2.6,0.4,0,Math.PI*2);ctx.fill();
     ctx.strokeStyle='rgba(255,120,140,0.5)';ctx.lineWidth=1;ctx.beginPath();ctx.ellipse(0,0,5,3.8,0.4,0,Math.PI*2);ctx.stroke();
     ctx.restore();
   }
-  for(const lod of S.lodged){ctx.save();ctx.fillStyle='#e8e4d8';ctx.beginPath();ctx.arc(lod.x,lod.y,2.2,0,Math.PI*2);ctx.fill();ctx.restore();}
+  for(const lod of S.lodged){const p=markerPos(lod);ctx.save();ctx.fillStyle='#e8e4d8';ctx.beginPath();ctx.arc(p.x,p.y,2.2,0,Math.PI*2);ctx.fill();ctx.restore();}
   // повязки
   for(const b of S.bandages){
     const a=zoneAnchor(b.zone);
@@ -1129,15 +1368,18 @@ function drawSwing(){
 function drawFloats(){
   for(const f of S.floats){ctx.save();ctx.globalAlpha=clamp(f.t,0,1);ctx.font='800 13px system-ui';ctx.textAlign='center';ctx.fillStyle=f.color;ctx.shadowColor='#000';ctx.shadowBlur=4;ctx.fillText(f.text,f.x,f.y);ctx.restore();}
 }
-function drawCrosshair(){
+function drawCrosshair(zoom){
   const it=ITEM_BY_ID[selected];if(!it)return;
   const weapon=it.cat==='fire'||it.cat==='melee';
-  const a=S.aim;if(a.x<0||!S.running||S.over)return;
-  if(!weapon){ctx.save();ctx.strokeStyle='rgba(120,255,220,0.85)';ctx.lineWidth=1.6;ctx.beginPath();ctx.arc(a.x,a.y,9,0,Math.PI*2);ctx.moveTo(a.x-13,a.y);ctx.lineTo(a.x-5,a.y);ctx.moveTo(a.x+5,a.y);ctx.lineTo(a.x+13,a.y);ctx.moveTo(a.x,a.y-13);ctx.lineTo(a.x,a.y-5);ctx.moveTo(a.x,a.y+5);ctx.lineTo(a.x,a.y+13);ctx.stroke();ctx.restore();return;}
-  ctx.save();ctx.strokeStyle='#ff5b6e';ctx.lineWidth=1.8;ctx.shadowColor='#ff5b6e';ctx.shadowBlur=7;
-  ctx.beginPath();ctx.arc(a.x,a.y,11,0,Math.PI*2);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(a.x-17,a.y);ctx.lineTo(a.x-7,a.y);ctx.moveTo(a.x+7,a.y);ctx.lineTo(a.x+17,a.y);ctx.moveTo(a.x,a.y-17);ctx.lineTo(a.x,a.y-7);ctx.moveTo(a.x,a.y+7);ctx.lineTo(a.x,a.y+17);ctx.stroke();
-  ctx.fillStyle='#ffd7dc';ctx.beginPath();ctx.arc(a.x,a.y,1.6,0,Math.PI*2);ctx.fill();ctx.restore();
+  const a=S.aim;if(a.x<-100||!S.running||S.over)return;
+  const cs=1/(zoom||1);
+  if(it.cat==='hand'){return;}
+  if(!weapon){ctx.save();ctx.strokeStyle='rgba(120,255,220,0.85)';ctx.lineWidth=1.6*cs;const r=9*cs;ctx.beginPath();ctx.arc(a.x,a.y,r,0,Math.PI*2);ctx.moveTo(a.x-13*cs,a.y);ctx.lineTo(a.x-5*cs,a.y);ctx.moveTo(a.x+5*cs,a.y);ctx.lineTo(a.x+13*cs,a.y);ctx.moveTo(a.x,a.y-13*cs);ctx.lineTo(a.x,a.y-5*cs);ctx.moveTo(a.x,a.y+5*cs);ctx.lineTo(a.x,a.y+13*cs);ctx.stroke();ctx.restore();return;}
+  ctx.save();ctx.strokeStyle='#ff5b6e';ctx.lineWidth=1.8*cs;ctx.shadowColor='#ff5b6e';ctx.shadowBlur=7;
+  const r=11*cs,t1=7*cs,t2=17*cs;
+  ctx.beginPath();ctx.arc(a.x,a.y,r,0,Math.PI*2);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(a.x-t2,a.y);ctx.lineTo(a.x-t1,a.y);ctx.moveTo(a.x+t1,a.y);ctx.lineTo(a.x+t2,a.y);ctx.moveTo(a.x,a.y-t2);ctx.lineTo(a.x,a.y-t1);ctx.moveTo(a.x,a.y+t1);ctx.lineTo(a.x,a.y+t2);ctx.stroke();
+  ctx.fillStyle='#ffd7dc';ctx.beginPath();ctx.arc(a.x,a.y,1.6*cs,0,Math.PI*2);ctx.fill();ctx.restore();
 }
 
 /* ============ ЭКГ ============ */
@@ -1190,7 +1432,8 @@ function updateVitalsHUD(){
   $('#consText').textContent=Math.round(V.consciousness);$('#consBar').style.width=V.consciousness+'%';
   $('#vitalsClock').textContent=fmtTime(S.time);
   const rt=$('#ecgRhythm');
-  if(S.rhythm==='arrest')rt.textContent='АСИСТОЛИЯ';
+  if(S.effects.cryoT>0)rt.textContent='❄ КРИО-АНАБИОЗ';
+  else if(S.rhythm==='arrest')rt.textContent='АСИСТОЛИЯ';
   else if(hasCrisis('arrhythmia'))rt.textContent='ФИБРИЛЛЯЦИЯ Ж/Ж';
   else if(V.hr<48)rt.textContent='БРАДИКАРДИЯ';
   else if(V.hr>118)rt.textContent='ТАХИКАРДИЯ';
@@ -1208,11 +1451,21 @@ function updateVitalsHUD(){
   if(S.effects.atropineT>0)chips.push('<span class="fxchip">🌿 Атропин</span>');
   if(S.effects.antibioticT>0)chips.push('<span class="fxchip">💊 Антибиотик</span>');
   if(S.effects.tranqT>0)chips.push('<span class="fxchip">💤 Сон '+Math.ceil(S.effects.tranqT)+'с</span>');
+  if(S.effects.neuralT>0)chips.push('<span class="fxchip">⚡ Нейро-блок '+Math.ceil(S.effects.neuralT)+'с</span>');
+  if(S.effects.cryoT>0)chips.push('<span class="fxchip">❄️ Крио '+Math.ceil(S.effects.cryoT)+'с</span>');
+  if(S.effects.coagT>0)chips.push('<span class="fxchip">🔥 Прижжено внутр. '+Math.ceil(S.effects.coagT)+'с</span>');
+  if(S.effects.peroxT>0)chips.push('<span class="fxchip">🧴 Перекись '+Math.ceil(S.effects.peroxT)+'с</span>');
+  const nz=Object.keys(S.zoneFreeze).length;if(nz>0)chips.push('<span class="fxchip">❄️ Мороз зон: '+nz+'</span>');
   if(S.iv.saline>0)chips.push('<span class="fxchip">🧂 Капельница '+Math.ceil(S.iv.saline)+' мл</span>');
   if(S.iv.blood>0)chips.push('<span class="fxchip">🩸 Переливание '+Math.ceil(S.iv.blood)+' мл</span>');
   if(S.rebleedRate>0)chips.push('<span class="fxchip warn">🩸 Кровотечение +'+Math.round(S.rebleedRate)+' мл/с</span>');
   const activeBleeds=S.wounds.filter(w=>w.bleed>0.4&&!w.treated).length;
   if(activeBleeds>0)chips.push('<span class="fxchip warn">🩹 Кровоточит ран: '+activeBleeds+'</span>');
+  document.querySelectorAll('[data-pow]').forEach(el=>{
+    const left=Math.max(0,(S.powerCd[el.getAttribute('data-pow')]||0)-S.time);
+    el.textContent=left>0?Math.ceil(left)+'с':'∞';
+    el.classList.toggle('zero',left>0);
+  });
   $('#effectChips').innerHTML=chips.length?chips.join(''):'<span style="color:#5b6d88;font-size:10px">нет активных эффектов</span>';
   if(S.mode==='challenge'){$('#timerText').textContent=fmtTime(Math.max(0,S.challengeTime-S.time));$('#scoreText').textContent=S.score;}
 }
@@ -1230,20 +1483,25 @@ function resize(){
 }
 new ResizeObserver(()=>resize()).observe(stageEl);
 
+function clampView(){const v=S.view;const wx=W-W*v.scale,wy=H-H*v.scale;v.ox=clamp(v.ox,wx,0);v.oy=clamp(v.oy,wy,0);}
+function zoomAt(f,mx,my){const v=S.view;const ns=clamp(v.scale*f,0.6,2.5);const k=ns/v.scale;v.ox=mx-(mx-v.ox)*k;v.oy=my-(my-v.oy)*k;v.scale=ns;clampView();}
+function zoomCenter(f){zoomAt(f,W/2,H/2);}
+function resetView(){S.view.scale=1;S.view.ox=0;S.view.oy=0;}
 function render(){
   ctx.clearRect(0,0,W,H);
-  const sh=S.shake;
+  const sh=S.shake,v=S.view;
   ctx.save();
+  ctx.translate(v.ox,v.oy);ctx.scale(v.scale,v.scale);
   if(sh>0)ctx.translate((Math.random()-0.5)*sh*2.4,(Math.random()-0.5)*sh*2.4);
   drawLabBack();
   drawPool();
   drawBody();
   drawWounds();
   drawFx();
-  ctx.restore();
   drawSwing();
   drawFloats();
-  drawCrosshair();
+  drawCrosshair(v.scale);
+  ctx.restore();
   drawEcg();
 }
 let lastTs=0;
@@ -1252,7 +1510,9 @@ function frame(ts){
   if(!lastTs)lastTs=ts;
   let dt=Math.min(0.05,(ts-lastTs)/1000);lastTs=ts;
   const active=S.running&&!S.paused&&!S.over;
-  if(active){
+  const cryo=S.effects.cryoT>0;
+  if(cryo)S.effects.cryoT=Math.max(0,S.effects.cryoT-dt);
+  if(active&&!cryo){
     S.time+=dt;
     if(S.mode==='challenge')challengeTick(dt);
     vitalsTick(dt);
@@ -1271,24 +1531,69 @@ function frame(ts){
 }
 
 /* ============ ВВОД ============ */
-function canvasPos(e){const r=canvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top};}
+function canvasPos(e){const r=canvas.getBoundingClientRect();const v=S.view;return{x:(e.clientX-r.left-v.ox)/v.scale,y:(e.clientY-r.top-v.oy)/v.scale};}
+function applyPoseAt(p){
+  const L=bodyLayout();const d=S.poseDrag;if(!d)return;
+  const zone=d.zone;
+  if(zone==='armL'||zone==='armR'){
+    const side=zone==='armL'?-1:1,raw=rawLimbSeg(side);
+    const base=Math.atan2(raw.by-raw.ay,raw.bx-raw.ax),want=Math.atan2(p.y-raw.ay,p.x-raw.ax);
+    S.pose[zone]=clamp(normAngle(want-base),-2.35,2.35);
+  }else if(zone==='legL'||zone==='legR'){
+    const side=zone==='legL'?-1:1,raw=rawLegSeg(side);
+    const base=Math.atan2(raw.by-raw.ay,raw.bx-raw.ax),want=Math.atan2(p.y-raw.ay,p.x-raw.ax);
+    S.pose[zone]=clamp(normAngle(want-base),-0.62,0.62);
+  }else if(zone==='head'){
+    const py=L.shY-2;
+    S.pose.head=clamp(Math.atan2(p.x-L.cx,-(p.y-py)),-0.5,0.5);
+  }else{
+    toast('Это не тянется — только руки, ноги и голова');S.poseDrag=null;
+  }
+}
 canvas.addEventListener('pointerdown',e=>{
   e.preventDefault();AU.ensure();
-  const p=canvasPos(e);S.aim=p;try{canvas.setPointerCapture(e.pointerId);}catch(err){}
+  const p=canvasPos(e);
+  try{canvas.setPointerCapture(e.pointerId);}catch(err){}
+  if(e.button===2||e.button===1){S.panning={x:e.clientX,y:e.clientY,ox:S.view.ox,oy:S.view.oy};return;}
+  S.aim=p;
   if(!S.running||S.paused||S.over)return;
   const it=ITEM_BY_ID[selected];if(!it)return;
+  if(it.cat==='hand'){
+    const z=zoneAt(p.x,p.y);
+    if(z)S.poseDrag={zone:z};
+    else toast('Тут не за что ухватиться');
+    return;
+  }
   if(it.cat==='fire'){
     if(it.auto){S.fireHeld=true;S.fireTimer=it.rate;fireWeapon(it,p.x,p.y);}
     else fireWeapon(it,p.x,p.y);
   }else if(it.cat==='melee'){meleeSwing(it,p.x,p.y);}
   else{useMed(it,p.x,p.y);}
 });
-canvas.addEventListener('pointermove',e=>{S.aim=canvasPos(e);});
-const stopFire=()=>{S.fireHeld=false;};
+canvas.addEventListener('pointermove',e=>{
+  if(S.panning){S.view.ox=S.panning.ox+(e.clientX-S.panning.x);S.view.oy=S.panning.oy+(e.clientY-S.panning.y);clampView();return;}
+  const p=canvasPos(e);
+  if(S.poseDrag){applyPoseAt(p);return;}
+  S.aim=p;
+});
+function endPoseDrag(){
+  if(S.poseDrag){
+    const z=S.poseDrag.zone;
+    const zf=S.fractures.filter(f=>f.zone===z).length;
+    if(zf>0){gainPain(3*zf);toast('Ай — там же перелом!');}
+    S.poseDrag=null;
+  }
+}
+const stopFire=()=>{S.fireHeld=false;S.panning=null;endPoseDrag();};
 canvas.addEventListener('pointerup',stopFire);
 canvas.addEventListener('pointercancel',stopFire);
-canvas.addEventListener('pointerleave',()=>{S.fireHeld=false;S.aim={x:-999,y:-999};});
+canvas.addEventListener('pointerleave',()=>{S.fireHeld=false;S.panning=null;endPoseDrag();S.aim={x:-999,y:-999};});
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
+canvas.addEventListener('dblclick',e=>{
+  const it=ITEM_BY_ID[selected];
+  if(it&&it.cat==='hand'){S.pose={armL:0,armR:0,legL:0,legR:0,head:0};toast('Поза сброшена');AU.play('click');e.preventDefault();}
+});
+canvas.addEventListener('wheel',e=>{e.preventDefault();const r=canvas.getBoundingClientRect();zoomAt(Math.exp(-e.deltaY*0.0011),e.clientX-r.left,e.clientY-r.top);},{passive:false});
 
 /* ============ КНОПКИ И РЕЖИМЫ ============ */
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const t=a[i];a[i]=a[j];a[j]=t;}return a;}
@@ -1307,7 +1612,9 @@ function startChallenge(){
   S.organs.liver=25;
   const a=zoneAnchor('belly');
   const bx=a.x+rand(-8,8),by=a.y+rand(-4,6);
-  addWound({t:0,zone:'belly',name:'Огнестрельное ранение (принял дежурный)',dmg:64,bleed:8.5,baseBleed:8.5,treated:false,x:bx,y:by,lodgedId:null});
+  const iw={t:0,zone:'belly',name:'Огнестрельное ранение (принял дежурный)',dmg:64,bleed:8.5,baseBleed:8.5,treated:false,lodgedId:null};
+  markerInto(iw,'belly',bx,by);
+  addWound(iw);
   addLodged(bx,by,'pistol','belly');
   S.vitals.pain=38;S.vitals.hr=112;S.vitals.bpSys=104;S.vitals.consciousness=92;
   loseBlood(180);
@@ -1348,6 +1655,11 @@ $('#resumeRun').addEventListener('click',()=>{AU.play('click');toggleMenu(false)
 $('#menuBtn').addEventListener('click',()=>{AU.play('click');toggleMenu();});
 $('#pauseBtn').addEventListener('click',togglePause);
 $('#xrayBtn').addEventListener('click',()=>{S.xray=!S.xray;$('#xrayBtn').classList.toggle('active',S.xray);AU.play('click');});
+$('#surgeryBtn').addEventListener('click',toggleSurgery);
+$('#goreBtn').addEventListener('click',toggleGore);
+$('#zoomInBtn').addEventListener('click',()=>{zoomCenter(1.25);AU.play('click');});
+$('#zoomOutBtn').addEventListener('click',()=>{zoomCenter(0.8);AU.play('click');});
+$('#zoomResetBtn').addEventListener('click',()=>{resetView();AU.play('click');});
 $('#soundBtn').addEventListener('click',function(){AU.on=!AU.on;this.textContent=AU.on?'🔊':'🔇';if(AU.on)AU.play('click');});
 $('#saveBtn').addEventListener('click',()=>{AU.play('click');saveGame();});
 $('#loadBtn').addEventListener('click',()=>{AU.play('click');loadGame();});
@@ -1364,11 +1676,14 @@ $('#goMenuBtn').addEventListener('click',()=>{AU.play('click');$('#gameoverOverl
 window.addEventListener('keydown',e=>{
   if(e.code==='Space'){e.preventDefault();togglePause();}
   else if(e.code==='KeyX'){S.xray=!S.xray;$('#xrayBtn').classList.toggle('active',S.xray);}
+  else if(e.code==='KeyS'){toggleSurgery();}
+  else if(e.code==='KeyC'){resetView();}
   else if(e.code==='Escape'){toggleMenu();}
   else if(e.code==='KeyM'){AU.on=!AU.on;$('#soundBtn').textContent=AU.on?'🔊':'🔇';}
 });
 
 /* ============ СТАРТ ============ */
+try{S.gore=localStorage.getItem('traumalab_gore')!=='0';}catch(e){}
 buildOrganList();
 renderCats();
 resize();
